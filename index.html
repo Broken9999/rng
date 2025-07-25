@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Infinite RNG with Leaderboard</title>
+  <title>Infinite RNG with Mutations</title>
   <style>
     body {
       font-family: Arial Rounded, sans-serif;
@@ -42,11 +42,12 @@
     .rarity-25 { color: #cc66ff; }
     .rarity-50 { color: #ff9900; }
     .rarity-100 { color: gold; font-weight: bold; }
+    .mutation { color: #ff66cc; font-style: italic; }
   </style>
 </head>
 <body>
 
-  <h1>🎲 Infinite RNG + Leaderboard</h1>
+  <h1>🎲 Infinite RNG + Mutations + Leaderboard</h1>
   <div>
     <button onclick="roll(1)">Roll x1</button>
     <button onclick="roll(10)">Roll x10</button>
@@ -71,39 +72,63 @@
     let lastRoll = null;
     let topRolls = JSON.parse(localStorage.getItem("top-rolls")) || [];
 
-    // Initial base odds
+    const mutations = [];
+    for (let i = 0; i < 50; i++) {
+      let multiplier = (Math.random() * 9.9 + 1.1).toFixed(1); // x1.1 to x11.0
+      mutations.push(`x${multiplier}`);
+    }
+
+    // Initialize base odds
     [2, 5, 10, 25, 50, 100].forEach(o => {
       const label = `(1 in ${o})`;
       oddsList.push({ odds: o, label });
       if (!(label in inventory)) inventory[label] = 0;
     });
 
+    function addNewOddsTier() {
+      maxOdds++;
+      const newLabel = `(1 in ${maxOdds})`;
+      oddsList.push({ odds: maxOdds, label: newLabel });
+      if (!(newLabel in inventory)) inventory[newLabel] = 0;
+    }
+
+    function getRandomRoll() {
+      // Randomly expand pool
+      if (Math.random() < 0.25) addNewOddsTier();
+
+      const item = oddsList[Math.floor(Math.random() * oddsList.length)];
+
+      // Mutation
+      const mutation = mutations[Math.floor(Math.random() * mutations.length)];
+      const multiplier = parseFloat(mutation.replace("x", ""));
+      const finalOdds = Math.floor(item.odds * multiplier);
+      const finalLabel = `(1 in ${finalOdds}) [${mutation}]`;
+
+      const chance = 1 / finalOdds;
+      if (Math.random() <= chance) {
+        return {
+          label: finalLabel,
+          odds: finalOdds,
+          mutation
+        };
+      } else {
+        return null;
+      }
+    }
+
     function roll(times = 1) {
       for (let t = 0; t < times; t++) {
-        if (Math.random() < 0.25) {
-          maxOdds++;
-          const newLabel = `(1 in ${maxOdds})`;
-          oddsList.push({ odds: maxOdds, label: newLabel });
-          if (!(newLabel in inventory)) inventory[newLabel] = 0;
-        }
+        let result = null;
+        while (!result) result = getRandomRoll();
 
-        const pool = [];
-        oddsList.forEach(item => {
-          const weight = Math.max(1, Math.floor(100 / item.odds));
-          for (let i = 0; i < weight; i++) {
-            pool.push(item.label);
-          }
-        });
-
-        const result = pool[Math.floor(Math.random() * pool.length)];
         const timestamp = new Date().toLocaleString();
-        inventory[result]++;
-        lastRoll = { label: result, time: timestamp };
-        history.unshift(result);
+        if (!inventory[result.label]) inventory[result.label] = 0;
+        inventory[result.label]++;
+        lastRoll = { label: result.label, time: timestamp };
+        history.unshift(result.label);
         if (history.length > 5) history.pop();
 
-        const odds = parseInt(result.match(/\d+/)[0]);
-        topRolls.push({ label: result, odds, time: timestamp });
+        topRolls.push({ label: result.label, odds: result.odds, time: timestamp });
         topRolls.sort((a, b) => b.odds - a.odds);
         topRolls = topRolls.slice(0, 3);
       }
@@ -125,11 +150,7 @@
       });
       document.getElementById("rollHistory").innerHTML = histHTML;
 
-      let topHTML = `<strong>🌍 Top 3 Global Rolls:</strong><br>`;
-      topRolls.forEach((item, index) => {
-        topHTML += `${index + 1}. <span class="${getRarityClass(item.label)}">${item.label}</span><br><small>${item.time}</small><br>`;
-      });
-      document.getElementById("leaderboard").innerHTML = topHTML;
+      renderTopRolls();
 
       let html = `<strong>Inventory:</strong><br>`;
       Object.entries(inventory).forEach(([label, count]) => {
@@ -138,6 +159,14 @@
         }
       });
       document.getElementById("inventoryDisplay").innerHTML = html;
+    }
+
+    function renderTopRolls() {
+      let topHTML = `<strong>🌍 Top 3 Global Rolls:</strong><br>`;
+      topRolls.forEach((item, index) => {
+        topHTML += `${index + 1}. <span class="${getRarityClass(item.label)}">${item.label}</span><br><small>${item.time}</small><br>`;
+      });
+      document.getElementById("leaderboard").innerHTML = topHTML;
     }
 
     function toggleAutoRoll() {
@@ -163,6 +192,7 @@
     }
 
     updateDisplay();
+    setInterval(renderTopRolls, 20000); // Update top rolls every 20 sec
   </script>
 
 </body>
