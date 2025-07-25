@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Infinite RNG (1 in ???)</title>
+  <style>
+    body {
+      font-family: Arial Rounded, sans-serif;
+      background-color: #111;
+      color: #fff;
+      text-align: center;
+      padding: 40px;
+    }
+    button {
+      font-size: 18px;
+      padding: 10px 22px;
+      margin: 5px;
+      border: none;
+      border-radius: 20px;
+      background-color: #ffcc00;
+      color: #111;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #ffe066;
+    }
+    .result {
+      font-size: 22px;
+      margin-top: 25px;
+    }
+    .inventory {
+      margin-top: 30px;
+      text-align: left;
+      display: inline-block;
+      font-size: 15px;
+      max-height: 400px;
+      overflow-y: auto;
+      width: 60%;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎲 Infinite RNG (1 in ???)</h1>
+  <p>Click or auto-roll from a growing pool of rarity odds</p>
+
+  <div>
+    <button onclick="roll(1)">Roll x1</button>
+    <button onclick="roll(10)">Roll x10</button>
+    <button onclick="roll(100)">Roll x100</button>
+    <button onclick="toggleAutoRoll()">
+      <span id="autoLabel">Start Auto Roll</span>
+    </button>
+  </div>
+
+  <div class="result" id="resultText">?</div>
+  <div class="inventory" id="inventoryDisplay"></div>
+
+  <script>
+    const inventory = {};
+    const oddsList = [];
+    let maxOdds = 100;
+    let autoRolling = false;
+    let autoInterval;
+
+    // Initial base odds
+    [2, 5, 10, 25, 50, 100].forEach(o => {
+      const label = `(1 in ${o})`;
+      oddsList.push({ odds: o, label });
+      inventory[label] = 0;
+    });
+
+    function roll(times = 1) {
+      for (let t = 0; t < times; t++) {
+        if (Math.random() < 0.25) {
+          maxOdds++;
+          const newLabel = `(1 in ${maxOdds})`;
+          oddsList.push({ odds: maxOdds, label: newLabel });
+          if (!inventory[newLabel]) inventory[newLabel] = 0;
+        }
+
+        const pool = [];
+        oddsList.forEach(item => {
+          const weight = Math.max(1, Math.floor(100 / item.odds));
+          for (let i = 0; i < weight; i++) {
+            pool.push(item.label);
+          }
+        });
+
+        const result = pool[Math.floor(Math.random() * pool.length)];
+        inventory[result]++;
+      }
+
+      updateDisplay();
+    }
+
+    function updateDisplay() {
+      const last = Object.entries(inventory)
+        .filter(([_, count]) => count > 0)
+        .sort((a, b) => b[1] - a[1])[0];
+      document.getElementById("resultText").innerHTML =
+        last ? `Latest top roll: <strong>${last[0]}</strong>` : "?";
+
+      let html = `<strong>Inventory:</strong><br>`;
+      Object.entries(inventory).forEach(([label, count]) => {
+        if (count > 0) {
+          html += `${label} x${count}<br>`;
+        }
+      });
+      document.getElementById("inventoryDisplay").innerHTML = html;
+    }
+
+    function toggleAutoRoll() {
+      autoRolling = !autoRolling;
+      document.getElementById("autoLabel").textContent =
+        autoRolling ? "Stop Auto Roll" : "Start Auto Roll";
+
+      if (autoRolling) {
+        autoInterval = setInterval(() => roll(1), 500);
+      } else {
+        clearInterval(autoInterval);
+      }
+    }
+  </script>
+
+</body>
+</html>
