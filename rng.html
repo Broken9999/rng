@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Infinite RNG (1 in ???)</title>
+  <title>Infinite RNG with Leaderboard</title>
   <style>
     body {
       font-family: Arial Rounded, sans-serif;
@@ -11,8 +11,8 @@
       padding: 40px;
     }
     button {
-      font-size: 18px;
-      padding: 10px 22px;
+      font-size: 16px;
+      padding: 10px 20px;
       margin: 5px;
       border: none;
       border-radius: 20px;
@@ -23,26 +23,30 @@
     button:hover {
       background-color: #ffe066;
     }
-    .result {
-      font-size: 22px;
-      margin-top: 25px;
+    .result, .history, .leaderboard {
+      font-size: 18px;
+      margin-top: 20px;
     }
     .inventory {
       margin-top: 30px;
       text-align: left;
       display: inline-block;
       font-size: 15px;
-      max-height: 400px;
+      max-height: 300px;
       overflow-y: auto;
       width: 60%;
     }
+    .rarity-2 { color: #ccc; }
+    .rarity-5 { color: #66cc66; }
+    .rarity-10 { color: #3399ff; }
+    .rarity-25 { color: #cc66ff; }
+    .rarity-50 { color: #ff9900; }
+    .rarity-100 { color: gold; font-weight: bold; }
   </style>
 </head>
 <body>
 
-  <h1>🎲 Infinite RNG (1 in ???)</h1>
-  <p>Click or auto-roll from a growing pool of rarity odds</p>
-
+  <h1>🎲 Infinite RNG + Leaderboard</h1>
   <div>
     <button onclick="roll(1)">Roll x1</button>
     <button onclick="roll(10)">Roll x10</button>
@@ -53,20 +57,25 @@
   </div>
 
   <div class="result" id="resultText">?</div>
+  <div class="history" id="rollHistory"></div>
+  <div class="leaderboard" id="leaderboard"></div>
   <div class="inventory" id="inventoryDisplay"></div>
 
   <script>
-    const inventory = {};
+    const inventory = JSON.parse(localStorage.getItem("rng-inventory")) || {};
     const oddsList = [];
     let maxOdds = 100;
     let autoRolling = false;
     let autoInterval;
+    const history = [];
+    let lastRoll = null;
+    let topRolls = JSON.parse(localStorage.getItem("top-rolls")) || [];
 
     // Initial base odds
     [2, 5, 10, 25, 50, 100].forEach(o => {
       const label = `(1 in ${o})`;
       oddsList.push({ odds: o, label });
-      inventory[label] = 0;
+      if (!(label in inventory)) inventory[label] = 0;
     });
 
     function roll(times = 1) {
@@ -75,7 +84,7 @@
           maxOdds++;
           const newLabel = `(1 in ${maxOdds})`;
           oddsList.push({ odds: maxOdds, label: newLabel });
-          if (!inventory[newLabel]) inventory[newLabel] = 0;
+          if (!(newLabel in inventory)) inventory[newLabel] = 0;
         }
 
         const pool = [];
@@ -87,23 +96,45 @@
         });
 
         const result = pool[Math.floor(Math.random() * pool.length)];
+        const timestamp = new Date().toLocaleString();
         inventory[result]++;
+        lastRoll = { label: result, time: timestamp };
+        history.unshift(result);
+        if (history.length > 5) history.pop();
+
+        const odds = parseInt(result.match(/\d+/)[0]);
+        topRolls.push({ label: result, odds, time: timestamp });
+        topRolls.sort((a, b) => b.odds - a.odds);
+        topRolls = topRolls.slice(0, 3);
       }
 
+      localStorage.setItem("rng-inventory", JSON.stringify(inventory));
+      localStorage.setItem("top-rolls", JSON.stringify(topRolls));
       updateDisplay();
     }
 
     function updateDisplay() {
-      const last = Object.entries(inventory)
-        .filter(([_, count]) => count > 0)
-        .sort((a, b) => b[1] - a[1])[0];
-      document.getElementById("resultText").innerHTML =
-        last ? `Latest top roll: <strong>${last[0]}</strong>` : "?";
+      const last = lastRoll;
+      document.getElementById("resultText").innerHTML = last
+        ? `Latest roll: <strong class="${getRarityClass(last.label)}">${last.label}</strong> <br><small>${last.time}</small>`
+        : "?";
+
+      let histHTML = `<strong>Recent Rolls:</strong><br>`;
+      history.forEach(item => {
+        histHTML += `<span class="${getRarityClass(item)}">${item}</span><br>`;
+      });
+      document.getElementById("rollHistory").innerHTML = histHTML;
+
+      let topHTML = `<strong>🌍 Top 3 Global Rolls:</strong><br>`;
+      topRolls.forEach((item, index) => {
+        topHTML += `${index + 1}. <span class="${getRarityClass(item.label)}">${item.label}</span><br><small>${item.time}</small><br>`;
+      });
+      document.getElementById("leaderboard").innerHTML = topHTML;
 
       let html = `<strong>Inventory:</strong><br>`;
       Object.entries(inventory).forEach(([label, count]) => {
         if (count > 0) {
-          html += `${label} x${count}<br>`;
+          html += `<span class="${getRarityClass(label)}">${label}</span> x${count}<br>`;
         }
       });
       document.getElementById("inventoryDisplay").innerHTML = html;
@@ -120,6 +151,18 @@
         clearInterval(autoInterval);
       }
     }
+
+    function getRarityClass(label) {
+      const num = parseInt(label.match(/\d+/));
+      if (num <= 2) return "rarity-2";
+      if (num <= 5) return "rarity-5";
+      if (num <= 10) return "rarity-10";
+      if (num <= 25) return "rarity-25";
+      if (num <= 50) return "rarity-50";
+      return "rarity-100";
+    }
+
+    updateDisplay();
   </script>
 
 </body>
