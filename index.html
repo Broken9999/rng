@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>RNG Game with Shop, Market, Brew</title>
+  <title>🎲 Infinite RNG + Mutations</title>
   <style>
     * { box-sizing: border-box; }
     body {
-      font-family: Arial Rounded, sans-serif;
+      font-family: 'Arial Rounded', sans-serif;
       background-color: #111;
       color: #fff;
       margin: 0;
@@ -14,13 +14,13 @@
     }
     header {
       background: #1a1a1a;
-      padding: 10px;
+      padding: 10px 20px;
       text-align: center;
       border-bottom: 1px solid #333;
     }
     header h1 {
-      margin: 0;
       font-size: 20px;
+      margin: 0;
       color: #ffcc00;
     }
     nav {
@@ -42,9 +42,23 @@
       border-bottom: 2px solid #ffcc00;
     }
     main {
-      padding: 20px;
       max-width: 800px;
       margin: auto;
+      padding: 20px;
+      text-align: center;
+    }
+    button {
+      font-size: 15px;
+      padding: 10px 20px;
+      margin: 6px;
+      border: none;
+      border-radius: 25px;
+      background-color: #ffcc00;
+      color: #111;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #ffe066;
     }
     .screen { display: none; }
     .screen.active { display: block; }
@@ -54,11 +68,18 @@
       text-align: right;
       color: #ffcc00;
     }
+    .rarity-2 { color: #ccc; }
+    .rarity-5 { color: #66cc66; }
+    .rarity-10 { color: #3399ff; }
+    .rarity-25 { color: #cc66ff; }
+    .rarity-50 { color: #ff9900; }
+    .rarity-100 { color: gold; font-weight: bold; }
+    .small { font-size: 13px; color: #aaa; }
   </style>
 </head>
 <body>
   <header>
-    <h1>🎲 RNG Game</h1>
+    <h1>🎲 Infinite RNG + Mutations</h1>
   </header>
   <nav>
     <button onclick="switchScreen('rng')" class="active">🎲 RNG</button>
@@ -70,9 +91,19 @@
     <div class="coin-counter">Coins: <span id="coinCount">0</span></div>
 
     <div id="rng" class="screen active">
-      <h2>🎲 Roll for Loot</h2>
-      <button onclick="roll(1)">Roll x1</button>
-      <div id="resultText">?</div>
+      <div>
+        <button onclick="roll(1)">Roll x1</button>
+        <button onclick="roll(10)">Roll x10</button>
+        <button onclick="roll(100)">Roll x100</button>
+        <button onclick="toggleAutoRoll()"><span id="autoLabel">Start Auto Roll</span></button>
+      </div>
+      <div>
+        <button onclick="showInventory()">📦 Inventory</button>
+        <button onclick="clearRolls()">🧹 Clear Rolls</button>
+      </div>
+      <div class="section" id="resultText">?</div>
+      <div class="section" id="rollHistory"></div>
+      <div class="section" id="leaderboard"></div>
     </div>
 
     <div id="shop" class="screen">
@@ -111,10 +142,32 @@
       document.getElementById('coinCount').textContent = coins;
     }
 
-    function roll(times) {
+    function roll(times = 1) {
       const resultDiv = document.getElementById('resultText');
       let result = `You rolled ${times} time(s)`;
       resultDiv.innerHTML = result;
+    }
+
+    function toggleAutoRoll() {
+      autoRolling = !autoRolling;
+      document.getElementById("autoLabel").textContent =
+        autoRolling ? "Stop Auto Roll" : "Start Auto Roll";
+      if (autoRolling) {
+        autoInterval = setInterval(() => roll(1), 500);
+      } else {
+        clearInterval(autoInterval);
+      }
+    }
+
+    function showInventory() {
+      alert('Inventory screen placeholder');
+    }
+
+    function clearRolls() {
+      if (confirm("Clear all rolls and inventory?")) {
+        localStorage.clear();
+        location.reload();
+      }
     }
 
     function buyPotion() {
