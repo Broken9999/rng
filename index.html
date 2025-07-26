@@ -1,199 +1,157 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Infinite RNG with Mutations</title>
+  <meta charset="UTF-8">
+  <title>RNG Game with Shop, Market, Brew</title>
   <style>
+    * { box-sizing: border-box; }
     body {
       font-family: Arial Rounded, sans-serif;
       background-color: #111;
       color: #fff;
-      text-align: center;
-      padding: 40px;
+      margin: 0;
+      padding: 0;
     }
-    button {
-      font-size: 16px;
-      padding: 10px 20px;
-      margin: 5px;
+    header {
+      background: #1a1a1a;
+      padding: 10px;
+      text-align: center;
+      border-bottom: 1px solid #333;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+      color: #ffcc00;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      background-color: #222;
+      border-bottom: 1px solid #333;
+    }
+    nav button {
+      background: none;
+      color: #ccc;
       border: none;
-      border-radius: 20px;
-      background-color: #ffcc00;
-      color: #111;
+      padding: 12px 20px;
+      font-size: 16px;
       cursor: pointer;
     }
-    button:hover {
-      background-color: #ffe066;
+    nav button:hover, nav button.active {
+      color: #ffcc00;
+      border-bottom: 2px solid #ffcc00;
     }
-    .result, .history, .leaderboard {
+    main {
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+    }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .coin-counter {
       font-size: 18px;
-      margin-top: 20px;
+      margin-bottom: 10px;
+      text-align: right;
+      color: #ffcc00;
     }
-    .inventory {
-      margin-top: 30px;
-      text-align: left;
-      display: inline-block;
-      font-size: 15px;
-      max-height: 300px;
-      overflow-y: auto;
-      width: 60%;
-    }
-    .rarity-2 { color: #ccc; }
-    .rarity-5 { color: #66cc66; }
-    .rarity-10 { color: #3399ff; }
-    .rarity-25 { color: #cc66ff; }
-    .rarity-50 { color: #ff9900; }
-    .rarity-100 { color: gold; font-weight: bold; }
-    .mutation { color: #ff66cc; font-style: italic; }
   </style>
 </head>
 <body>
+  <header>
+    <h1>🎲 RNG Game</h1>
+  </header>
+  <nav>
+    <button onclick="switchScreen('rng')" class="active">🎲 RNG</button>
+    <button onclick="switchScreen('shop')">🛍️ Shop</button>
+    <button onclick="switchScreen('market')">🧺 Market</button>
+    <button onclick="switchScreen('brew')">⚗️ Brew</button>
+  </nav>
+  <main>
+    <div class="coin-counter">Coins: <span id="coinCount">0</span></div>
 
-  <h1>🎲 Infinite RNG + Mutations + Leaderboard</h1>
-  <div>
-    <button onclick="roll(1)">Roll x1</button>
-    <button onclick="roll(10)">Roll x10</button>
-    <button onclick="roll(100)">Roll x100</button>
-    <button onclick="toggleAutoRoll()">
-      <span id="autoLabel">Start Auto Roll</span>
-    </button>
-  </div>
+    <div id="rng" class="screen active">
+      <h2>🎲 Roll for Loot</h2>
+      <button onclick="roll(1)">Roll x1</button>
+      <div id="resultText">?</div>
+    </div>
 
-  <div class="result" id="resultText">?</div>
-  <div class="history" id="rollHistory"></div>
-  <div class="leaderboard" id="leaderboard"></div>
-  <div class="inventory" id="inventoryDisplay"></div>
+    <div id="shop" class="screen">
+      <h2>🛍️ Shop</h2>
+      <p>Buy potions and pills to boost your luck.</p>
+      <button onclick="buyPotion()">Buy Potion (+50% for 10 rolls) - 10 coins</button><br>
+      <button onclick="buyPill()">Buy Pill (Unlocks ultra rarity) - 50 coins</button>
+    </div>
+
+    <div id="market" class="screen">
+      <h2>🧺 Market</h2>
+      <p>Sell your crafted cards for coins.</p>
+      <button onclick="sellCard()">Sell Card - 5 coins</button>
+    </div>
+
+    <div id="brew" class="screen">
+      <h2>⚗️ Brew</h2>
+      <p>Craft new cards using rare rolls.</p>
+      <button onclick="craftCard()">Craft Card (uses rare roll)</button>
+    </div>
+  </main>
 
   <script>
-    const inventory = JSON.parse(localStorage.getItem("rng-inventory")) || {};
-    const oddsList = [];
-    let maxOdds = 100;
-    let autoRolling = false;
-    let autoInterval;
-    const history = [];
-    let lastRoll = null;
-    let topRolls = JSON.parse(localStorage.getItem("top-rolls")) || [];
+    let coins = 0;
+    let potionCount = 0;
+    let pillUsed = false;
 
-    const mutations = [];
-    for (let i = 0; i < 50; i++) {
-      let multiplier = (Math.random() * 9.9 + 1.1).toFixed(1); // x1.1 to x11.0
-      mutations.push(`x${multiplier}`);
+    function switchScreen(id) {
+      document.querySelectorAll('.screen').forEach(div => div.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      document.querySelector(`nav button[onclick="switchScreen('${id}')"]`).classList.add('active');
     }
 
-    // Initialize base odds
-    [2, 5, 10, 25, 50, 100].forEach(o => {
-      const label = `(1 in ${o})`;
-      oddsList.push({ odds: o, label });
-      if (!(label in inventory)) inventory[label] = 0;
-    });
-
-    function addNewOddsTier() {
-      maxOdds++;
-      const newLabel = `(1 in ${maxOdds})`;
-      oddsList.push({ odds: maxOdds, label: newLabel });
-      if (!(newLabel in inventory)) inventory[newLabel] = 0;
+    function updateCoins() {
+      document.getElementById('coinCount').textContent = coins;
     }
 
-    function getRandomRoll() {
-      // Randomly expand pool
-      if (Math.random() < 0.25) addNewOddsTier();
+    function roll(times) {
+      const resultDiv = document.getElementById('resultText');
+      let result = `You rolled ${times} time(s)`;
+      resultDiv.innerHTML = result;
+    }
 
-      const item = oddsList[Math.floor(Math.random() * oddsList.length)];
-
-      // Mutation
-      const mutation = mutations[Math.floor(Math.random() * mutations.length)];
-      const multiplier = parseFloat(mutation.replace("x", ""));
-      const finalOdds = Math.floor(item.odds * multiplier);
-      const finalLabel = `(1 in ${finalOdds}) [${mutation}]`;
-
-      const chance = 1 / finalOdds;
-      if (Math.random() <= chance) {
-        return {
-          label: finalLabel,
-          odds: finalOdds,
-          mutation
-        };
+    function buyPotion() {
+      if (coins >= 10) {
+        coins -= 10;
+        potionCount++;
+        alert('Potion added!');
       } else {
-        return null;
+        alert('Not enough coins.');
       }
+      updateCoins();
     }
 
-    function roll(times = 1) {
-      for (let t = 0; t < times; t++) {
-        let result = null;
-        while (!result) result = getRandomRoll();
-
-        const timestamp = new Date().toLocaleString();
-        if (!inventory[result.label]) inventory[result.label] = 0;
-        inventory[result.label]++;
-        lastRoll = { label: result.label, time: timestamp };
-        history.unshift(result.label);
-        if (history.length > 5) history.pop();
-
-        topRolls.push({ label: result.label, odds: result.odds, time: timestamp });
-        topRolls.sort((a, b) => b.odds - a.odds);
-        topRolls = topRolls.slice(0, 3);
-      }
-
-      localStorage.setItem("rng-inventory", JSON.stringify(inventory));
-      localStorage.setItem("top-rolls", JSON.stringify(topRolls));
-      updateDisplay();
-    }
-
-    function updateDisplay() {
-      const last = lastRoll;
-      document.getElementById("resultText").innerHTML = last
-        ? `Latest roll: <strong class="${getRarityClass(last.label)}">${last.label}</strong> <br><small>${last.time}</small>`
-        : "?";
-
-      let histHTML = `<strong>Recent Rolls:</strong><br>`;
-      history.forEach(item => {
-        histHTML += `<span class="${getRarityClass(item)}">${item}</span><br>`;
-      });
-      document.getElementById("rollHistory").innerHTML = histHTML;
-
-      renderTopRolls();
-
-      let html = `<strong>Inventory:</strong><br>`;
-      Object.entries(inventory).forEach(([label, count]) => {
-        if (count > 0) {
-          html += `<span class="${getRarityClass(label)}">${label}</span> x${count}<br>`;
-        }
-      });
-      document.getElementById("inventoryDisplay").innerHTML = html;
-    }
-
-    function renderTopRolls() {
-      let topHTML = `<strong>🌍 Top 3 Global Rolls:</strong><br>`;
-      topRolls.forEach((item, index) => {
-        topHTML += `${index + 1}. <span class="${getRarityClass(item.label)}">${item.label}</span><br><small>${item.time}</small><br>`;
-      });
-      document.getElementById("leaderboard").innerHTML = topHTML;
-    }
-
-    function toggleAutoRoll() {
-      autoRolling = !autoRolling;
-      document.getElementById("autoLabel").textContent =
-        autoRolling ? "Stop Auto Roll" : "Start Auto Roll";
-
-      if (autoRolling) {
-        autoInterval = setInterval(() => roll(1), 500);
+    function buyPill() {
+      if (coins >= 50 && !pillUsed) {
+        coins -= 50;
+        pillUsed = true;
+        alert('Pill activated! Extreme rarity unlocked.');
+      } else if (pillUsed) {
+        alert('Pill already used.');
       } else {
-        clearInterval(autoInterval);
+        alert('Not enough coins.');
       }
+      updateCoins();
     }
 
-    function getRarityClass(label) {
-      const num = parseInt(label.match(/\d+/));
-      if (num <= 2) return "rarity-2";
-      if (num <= 5) return "rarity-5";
-      if (num <= 10) return "rarity-10";
-      if (num <= 25) return "rarity-25";
-      if (num <= 50) return "rarity-50";
-      return "rarity-100";
+    function sellCard() {
+      coins += 5;
+      alert('Card sold for 5 coins!');
+      updateCoins();
     }
 
-    updateDisplay();
-    setInterval(renderTopRolls, 20000); // Update top rolls every 20 sec
+    function craftCard() {
+      alert('Card crafted from rare roll!');
+    }
+
+    updateCoins();
   </script>
-
 </body>
 </html>
