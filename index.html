@@ -1,34 +1,159 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>🎲 Perchance RNG with Rebirths & Batch Rolls</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f2f2f2; margin: 0; padding: 0; color: #333; }
-    .status-bar { text-align: center; padding: 10px; }
-    .status-bar span { margin: 0 15px; font-weight: bold; }
-    .status-bar progress { width: 200px; height: 16px; vertical-align: middle; }
-    .container { max-width: 600px; margin: 20px auto 50px; background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
-    .tabs { display: flex; border-bottom: 1px solid #ccc; margin-bottom: 15px; }
-    .tab { flex: 1; padding: 10px; cursor: pointer; }
-    .tab.active { border-bottom: 3px solid #333; font-weight: bold; }
-    .tab-content { display: none; padding: 20px 0; }
-    .tab-content.active { display: block; }
-    #roll-controls { margin-bottom: 15px; }
-    button { margin: 0 5px; background: #888; color: #fff; border: none; border-radius: 25px; padding: 8px 20px; cursor: pointer; }
-    button:disabled { background: #ccc; cursor: not-allowed; }
-    #clearHistory { background: #d9534f; }
-    #rebirthBtn { background: #28a745; }
-    #result { margin-top: 10px; font-size: 1.1em; min-height: 1.2em; }
-    ul { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; text-align: left; }
-    li { margin-bottom: 5px; }
-    .expired { color: #999; font-style: italic; }
-    @keyframes pop { 0% { transform: scale(1);} 50% { transform: scale(1.2);} 100% { transform: scale(1);} }
-    @keyframes flash { 0% { opacity: 1;} 50% { opacity: 0.3;} 100% { opacity: 1;} }
-    .anim-pop { animation: pop 0.5s ease; }
-    .anim-flash { animation: flash 1s ease; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+
+    .status-bar {
+      text-align: center;
+      padding: 10px;
+    }
+
+    .status-bar span {
+      margin: 0 15px;
+      font-weight: bold;
+    }
+
+    .status-bar progress {
+      width: 200px;
+      height: 16px;
+      vertical-align: middle;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 20px auto 50px;
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #ccc;
+      margin-bottom: 15px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      border-bottom: 3px solid #333;
+      font-weight: bold;
+    }
+
+    .tab-content {
+      display: none;
+      padding: 20px 0;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    #roll-controls {
+      margin-bottom: 15px;
+    }
+
+    button {
+      margin: 0 5px;
+      background: #888;
+      color: #fff;
+      border: none;
+      border-radius: 25px;
+      padding: 8px 20px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    #clearHistory {
+      background: #d9534f;
+    }
+
+    #rebirthBtn {
+      background: #28a745;
+    }
+
+    #result {
+      margin-top: 10px;
+      font-size: 1.1em;
+      min-height: 1.2em;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 300px;
+      overflow-y: auto;
+      text-align: left;
+    }
+
+    li {
+      margin-bottom: 5px;
+    }
+
+    .expired {
+      color: #999;
+      font-style: italic;
+    }
+
+    @keyframes pop {
+      0% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.2);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    @keyframes flash {
+      0% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+
+      100% {
+        opacity: 1;
+      }
+    }
+
+    .anim-pop {
+      animation: pop 0.5s ease;
+    }
+
+    .anim-flash {
+      animation: flash 1s ease;
+    }
   </style>
 </head>
+
 <body>
 
   <div class="status-bar">
@@ -69,182 +194,184 @@
     </div>
     <div id="logs" class="tab-content">
       <h3>Logs</h3>
-      <ul><li>V6.406 – Batch Rolls & Rebirth Unlocks Added</li></ul>
+      <ul>
+        <li>V6.406 – Batch Rolls & Rebirth Unlocks Added</li>
+      </ul>
     </div>
   </div>
 
   <script>
     // ─── Persistence & State Initialization ────────────────────────
     let historyKeys = JSON.parse(localStorage.getItem('history')) || [];
-    let inventory   = JSON.parse(localStorage.getItem('inventory')) || {};
+    let inventory = JSON.parse(localStorage.getItem('inventory')) || {};
 
     const initialCooldown = 0.5;
     let rebirthCount = parseInt(localStorage.getItem('rebirthCount')) || 0;
-    let rollCount    = parseInt(localStorage.getItem('rollCount'))    || 0;
+    let rollCount = parseInt(localStorage.getItem('rollCount')) || 0;
     let autoInterval = null;
 
     function getCooldown() { return Math.max(0, initialCooldown - 0.001 * rebirthCount); }
-    function getLuck()     { return 1 + 0.25 * rebirthCount; }
-    function getThreshold(){ return (rebirthCount === 0 ? 1000 : 1e6 * Math.pow(1000, rebirthCount - 1)); }
+    function getLuck() { return 1 + 0.25 * rebirthCount; }
+    function getThreshold() { return (rebirthCount === 0 ? 1000 : 1e6 * Math.pow(1000, rebirthCount - 1)); }
 
 
     const displayMap = {
-      common:   'Common',
+      common: 'Common',
       uncommon: '<span style="font-family:Arial;font-size:100%;color:#54ff82">Uncommon 🍀</span>',
-      rare:     '<span style="font-family:Arial;font-size:100%;color:#00b3ff">Rare 💎</span>',
-      epic:     '<span style="font-family:Arial;font-size:100%;color:#0000ff">Epic 🌌</span>',
+      rare: '<span style="font-family:Arial;font-size:100%;color:#00b3ff">Rare 💎</span>',
+      epic: '<span style="font-family:Arial;font-size:100%;color:#0000ff">Epic 🌌</span>',
       mythical: '<span style="font-family:Arial;font-size:100%;color:#a200ff">Mythical 🐉</span>',
-      golden:   '<span style="font-family:Arial;font-size:100%;color:#f1c232">Golden ✨</span>',
-      legendary:'<span style="font-family:\'Jacquard 12\';font-size:100%;color:#ffff00">Legendary 🔥</span>',
-      '100':    '💯',
-      extraordinary:'<span style="font-family:Arial;font-size:100%;color:#058009">Extraordinary</span>',
-      crimson:  '<span style="font-family:Spectral;font-size:100%;color:#980000">Crimson</span>',
-      divine:   '<span style="font-family:Arial;font-size:100%;color:#fff200">Divine</span>',
-      copper:   '<span style="font-family:Arial;font-size:100%;color:#e69138">Copper</span>',
-      nuclear:  '<span style="font-family:Arial;font-size:100%;color:#58ff58">Nuclear</span>',
-      aqua:     '<span style="font-family:Arial;font-size:100%;color:#7c7cff">Aqua</span>',
-      superb:   '<span style="font-family:Arial;font-size:100%;color:#00ffff">Superb</span>',
-      phantom:  '<span style="font-family:\'Aguafina Script\';font-size:100%;color:#abd9ff">Phantom</span>',
-      jackpot:  '<b><span style="font-family:Arial;font-size:100%;color:#00ff00">$</span></b> ' +
-                '<span style="font-family:\'Jacques Francois Shadow\';font-size:100%;color:#ffff00">Jackpot</span> ' +
-                '<b><span style="font-family:Arial;font-size:100%;color:#00ff00">$</span></b>',
-      neon:     '<span style="font-family:Neonderthaw;font-size:100%;color:#00ff00">Neon</span>',
-      flow:     '<span style="font-family:\'Flow Circular\';font-size:100%">Flow</span>',
-      perchance:'<span style="font-family:Arial Rounded;font-size:120%;' +
-                'background:linear-gradient(to right,#d9d9d9,#919191);' +
-                '-webkit-background-clip:text;color:transparent">🎲Perchance🎲</span>',
-      hamburber:'<span style="font-family:Chewy;font-size:100%;color:#eb8034">🍔Hamburber🍔</span>',
-      hacked:   '<i><b><span style="font-family:Michroma;font-size:100%;color:#38761d">H4CK3D</span></b></i>',
-      crab:     '<span style="font-family:Chewy;font-size:100%;color:#eb3434">🦀Crab🦀</span>',
-      retro:    '<span style="font-family:Tiny5;font-size:100%;color:#00ff00">Retro</span>',
-      unknown:  '<span style="font-family:Wingdings;font-size:100%;color:#636363">Unknown</span>',
-      steampunk:'<span style="font-family:Hahmlet;font-size:100%;color:#bf9000">⚙️ STEAMPUNK ⚙️</span>',
-      starry:   '<b><span style="font-family:Codystar;font-size:100%;color:#9582ff">Starry</span></b>',
+      golden: '<span style="font-family:Arial;font-size:100%;color:#f1c232">Golden ✨</span>',
+      legendary: '<span style="font-family:\'Jacquard 12\';font-size:100%;color:#ffff00">Legendary 🔥</span>',
+      '100': '💯',
+      extraordinary: '<span style="font-family:Arial;font-size:100%;color:#058009">Extraordinary</span>',
+      crimson: '<span style="font-family:Spectral;font-size:100%;color:#980000">Crimson</span>',
+      divine: '<span style="font-family:Arial;font-size:100%;color:#fff200">Divine</span>',
+      copper: '<span style="font-family:Arial;font-size:100%;color:#e69138">Copper</span>',
+      nuclear: '<span style="font-family:Arial;font-size:100%;color:#58ff58">Nuclear</span>',
+      aqua: '<span style="font-family:Arial;font-size:100%;color:#7c7cff">Aqua</span>',
+      superb: '<span style="font-family:Arial;font-size:100%;color:#00ffff">Superb</span>',
+      phantom: '<span style="font-family:\'Aguafina Script\';font-size:100%;color:#abd9ff">Phantom</span>',
+      jackpot: '<b><span style="font-family:Arial;font-size:100%;color:#00ff00">$</span></b> ' +
+        '<span style="font-family:\'Jacques Francois Shadow\';font-size:100%;color:#ffff00">Jackpot</span> ' +
+        '<b><span style="font-family:Arial;font-size:100%;color:#00ff00">$</span></b>',
+      neon: '<span style="font-family:Neonderthaw;font-size:100%;color:#00ff00">Neon</span>',
+      flow: '<span style="font-family:\'Flow Circular\';font-size:100%">Flow</span>',
+      perchance: '<span style="font-family:Arial Rounded;font-size:120%;' +
+        'background:linear-gradient(to right,#d9d9d9,#919191);' +
+        '-webkit-background-clip:text;color:transparent">🎲Perchance🎲</span>',
+      hamburber: '<span style="font-family:Chewy;font-size:100%;color:#eb8034">🍔Hamburber🍔</span>',
+      hacked: '<i><b><span style="font-family:Michroma;font-size:100%;color:#38761d">H4CK3D</span></b></i>',
+      crab: '<span style="font-family:Chewy;font-size:100%;color:#eb3434">🦀Crab🦀</span>',
+      retro: '<span style="font-family:Tiny5;font-size:100%;color:#00ff00">Retro</span>',
+      unknown: '<span style="font-family:Wingdings;font-size:100%;color:#636363">Unknown</span>',
+      steampunk: '<span style="font-family:Hahmlet;font-size:100%;color:#bf9000">⚙️ STEAMPUNK ⚙️</span>',
+      starry: '<b><span style="font-family:Codystar;font-size:100%;color:#9582ff">Starry</span></b>',
       gambling_moment:
-                '<span style="font-family:Arial;font-size:100%;color:#00ff00">🎲 Gambling</span>',
+        '<span style="font-family:Arial;font-size:100%;color:#00ff00">🎲 Gambling</span>',
       legendary_supreme:
-                '<span style="font-family:Balthazar;font-size:100%;color:#ffb300">👑 Supreme</span>',
-      tangerine:'<span style="font-family:Tangerine;font-size:150%;color:#ed8b00">Tangerine</span>',
+        '<span style="font-family:Balthazar;font-size:100%;color:#ffb300">👑 Supreme</span>',
+      tangerine: '<span style="font-family:Tangerine;font-size:150%;color:#ed8b00">Tangerine</span>',
       crab_sushi_roll:
-                '<span style="font-family:Chewy;font-size:100%;color:#ffa987">🍣 Sushi</span>',
+        '<span style="font-family:Chewy;font-size:100%;color:#ffa987">🍣 Sushi</span>',
       wicked_sick:
-                '<span style="font-family:\'Sedgwick Ave Display\';font-size:100%;color:#bd0000">🤯 Wicked</span>',
-      summer:   '<span style="font-family:Honk;font-size:100%">☀ Summer</span>',
-      universal:'<span style="font-family:Merriweather;font-size:100%;color:#2e0c7e">🪐 Universal</span>',
+        '<span style="font-family:\'Sedgwick Ave Display\';font-size:100%;color:#bd0000">🤯 Wicked</span>',
+      summer: '<span style="font-family:Honk;font-size:100%">☀ Summer</span>',
+      universal: '<span style="font-family:Merriweather;font-size:100%;color:#2e0c7e">🪐 Universal</span>',
       retro_classical:
-                '<span style="font-family:\'Sixtyfour Convergence\';font-size:100%;color:#00ff00">🕹️ Retro‑Classical</span>',
+        '<span style="font-family:\'Sixtyfour Convergence\';font-size:100%;color:#00ff00">🕹️ Retro‑Classical</span>',
       techno_malware:
-                '<span style="font-family:\'Rubik Glitch\';font-size:100%;color:#ff6b6b">💾 Malware</span>',
-      quasar:   '<span style="font-family:\'Nova Mono\';font-size:100%;color:#b3a700">✨ Quasar</span>',
+        '<span style="font-family:\'Rubik Glitch\';font-size:100%;color:#ff6b6b">💾 Malware</span>',
+      quasar: '<span style="font-family:\'Nova Mono\';font-size:100%;color:#b3a700">✨ Quasar</span>',
       isolated: '<span style="font-family:\'Caesar Dressing\';font-size:100%;color:#b861ff">🧩 Isolated</span>',
       retro_pixelated:
-                '<span style="font-family:\'Rubik Pixels\';font-size:100%;color:#00ff00">🧱 Pixelated</span>',
+        '<span style="font-family:\'Rubik Pixels\';font-size:100%;color:#00ff00">🧱 Pixelated</span>',
       once_in_a_blue_moon:
-                '<b><span style="font-family:Arial;font-size:100%;color:#3686a0">☾</span></b> ' +
-                '<span style="font-family:Arial;font-size:100%;color:#3686a0">Blue Moon</span> ' +
-                '<b><span style="font-family:Arial;font-size:100%;color:#3686a0">☾</span></b>',
+        '<b><span style="font-family:Arial;font-size:100%;color:#3686a0">☾</span></b> ' +
+        '<span style="font-family:Arial;font-size:100%;color:#3686a0">Blue Moon</span> ' +
+        '<b><span style="font-family:Arial;font-size:100%;color:#3686a0">☾</span></b>',
       once_in_a_blood_moon:
-                '<b><span style="font-family:Arial;font-size:100%;color:#c65f5f">☾</span></b> ' +
-                '<span style="font-family:Arial;font-size:100%;color:#c65f5f">Blood Moon</span> ' +
-                '<b><span style="font-family:Arial;font-size:100%;color:#c65f5f">☾</span></b>',
+        '<b><span style="font-family:Arial;font-size:100%;color:#c65f5f">☾</span></b> ' +
+        '<span style="font-family:Arial;font-size:100%;color:#c65f5f">Blood Moon</span> ' +
+        '<b><span style="font-family:Arial;font-size:100%;color:#c65f5f">☾</span></b>',
       summer_heatstroke:
-                '<span style="font-family:Honk;font-size:100%;">🔥 Heatstroke</span>',
+        '<span style="font-family:Honk;font-size:100%;">🔥 Heatstroke</span>',
       techno_industrial:
-                '<span style="font-family:Arial;font-size:100%;color:#a3a3a3">⚙ Industrial</span>',
-      winter:   '<span style="font-family:Arial;font-size:100%;color:#00ffff">❄ Winter</span>',
-      swagger:  '<span style="font-family:\'Sedgwick Ave Display\';font-size:150%;color:#6ae400">😎 SWAGGER</span>',
+        '<span style="font-family:Arial;font-size:100%;color:#a3a3a3">⚙ Industrial</span>',
+      winter: '<span style="font-family:Arial;font-size:100%;color:#00ffff">❄ Winter</span>',
+      swagger: '<span style="font-family:\'Sedgwick Ave Display\';font-size:150%;color:#6ae400">😎 SWAGGER</span>',
       wicked_sick_devilish:
-                '<span style="font-family:\'Sedgwick Ave Display\';font-size:100%;color:#660000">😈 Devilish</span>',
+        '<span style="font-family:\'Sedgwick Ave Display\';font-size:100%;color:#660000">😈 Devilish</span>',
       techno_virtual:
-                '<i><b><span style="font-family:Sarpanch;font-size:100%;color:#b500ff">🧠 Virtual</span></b></i>',
+        '<i><b><span style="font-family:Sarpanch;font-size:100%;color:#b500ff">🧠 Virtual</span></b></i>',
       wicked_sick_radical:
-                '<i><span style="font-family:\'Sedgwick Ave Display\';font-size:130%;color:#0091ff">🎮 Radical</span></i>',
+        '<i><span style="font-family:\'Sedgwick Ave Display\';font-size:130%;color:#0091ff">🎮 Radical</span></i>',
       mystical_cryptic:
-                '<span style="font-family:Arial;font-size:100%;">🔮 Cryptic</span>',
+        '<span style="font-family:Arial;font-size:100%;">🔮 Cryptic</span>',
       retro_classical_legacy:
-                '<span style="font-family:Pixelify Sans;font-size:100%;color:#00ff00">🕹️ Legacy</span>',
+        '<span style="font-family:Pixelify Sans;font-size:100%;color:#00ff00">🕹️ Legacy</span>',
       absolute_zero:
-                '<span style="font-family:Iceberg;font-size:125%;color:#00ffea">🧊 Zero</span>',
+        '<span style="font-family:Iceberg;font-size:125%;color:#00ffea">🧊 Zero</span>',
       mystical_arcane:
-                '<span style="font-family:Sarpanch;font-size:100%;color:#8175ff">🗲 Arcane</span>',
+        '<span style="font-family:Sarpanch;font-size:100%;color:#8175ff">🗲 Arcane</span>',
       pi_calculus:
-                '<span style="font-family:Arial;font-size:100%;color:#d7bea8">🥧 π</span>',
+        '<span style="font-family:Arial;font-size:100%;color:#d7bea8">🥧 π</span>',
       royal_monarch:
-                '<span style="font-family:\'Bonheur Royale\';font-size:150%;color:#4169e1">♛ Monarch</span>',
+        '<span style="font-family:\'Bonheur Royale\';font-size:150%;color:#4169e1">♛ Monarch</span>',
       judgement_doomed:
-                '<span style="font-family:Rye;font-size:100%;color:#00996b">⚖ DOOMED</span>',
+        '<span style="font-family:Rye;font-size:100%;color:#00996b">⚖ DOOMED</span>',
       mystical_light:
-                '<span style="font-family:Arial;font-size:100%;">☀ Light</span>',
+        '<span style="font-family:Arial;font-size:100%;">☀ Light</span>',
       mystical_dark:
-                '<span style="font-family:Arial;font-size:100%;">☾ Dark</span>',
+        '<span style="font-family:Arial;font-size:100%;">☾ Dark</span>',
       isolated_limbo:
-                '<span style="font-family:Arial;font-size:100%;">🚪 Limbo</span>',
+        '<span style="font-family:Arial;font-size:100%;">🚪 Limbo</span>',
       quasar_supernova:
-                '<span style="font-family:Arial;font-size:100%;">💥 Supernova</span>',
+        '<span style="font-family:Arial;font-size:100%;">💥 Supernova</span>',
       mystical_nexus:
-                '<span style="font-family:Arial;font-size:100%;">⍟ Nexus</span>',
+        '<span style="font-family:Arial;font-size:100%;">⍟ Nexus</span>',
       determination_finale:
-                '<span style="font-family:Arial;font-size:100%;">❤️ Finale</span>',
+        '<span style="font-family:Arial;font-size:100%;">❤️ Finale</span>',
       armageddon_cataclysmic:
-                '<span style="font-family:Arial;font-size:100%;">🔥 Cataclysmic</span>',
+        '<span style="font-family:Arial;font-size:100%;">🔥 Cataclysmic</span>',
       euphoria_exotic:
-                '<span style="font-family:Arial;font-size:100%;">🌈 Euphoria</span>',
+        '<span style="font-family:Arial;font-size:100%;">🌈 Euphoria</span>',
       digitalized_1337:
-                '<span style="font-family:Arial;font-size:100%;">💾 1337</span>',
+        '<span style="font-family:Arial;font-size:100%;">💾 1337</span>',
       universal_zodiac:
-                '<span style="font-family:Arial;font-size:100%;">🌌 Zodiac</span>',
-      nice:     '<span style="font-family:Arial;font-size:100%;">😎 Nice</span>',
+        '<span style="font-family:Arial;font-size:100%;">🌌 Zodiac</span>',
+      nice: '<span style="font-family:Arial;font-size:100%;">😎 Nice</span>',
       // rngR extras:
       eleven_eleven: '1/1,111',
       // rngL extras:
       ordinary: 'Ordinary',
       // rng extras (mutations & placeholders):
-      commonMutations:     'commonMutations',
-      legendaryMutations:  'legendaryMutations',
-      extraordinaryMutations:'extraordinaryMutations',
-      hamburberMutations:  'hamburberMutations',
-      crabMutations:       'crabMutations',
-      retroMutations:      'retroMutations',
-      royalMutations:      'royalMutations',
-      once_in_a_blue_moonMutations:'once_in_a_blue_moonMutations',
-      technoMutations:     'technoMutations',
-      placeholder:         'Placeholder',
-      wicked_sickMutations:'wicked_sickMutations',
-      summerMutations:     'summerMutations',
-      universalMutations:  'universalMutations',
-      mysticalMutations:   'mysticalMutations',
-      piMutations:         'piMutations',
-      determinationMutations:'determinationMutations',
-      judgementMutations:  'judgementMutations',
+      commonMutations: 'commonMutations',
+      legendaryMutations: 'legendaryMutations',
+      extraordinaryMutations: 'extraordinaryMutations',
+      hamburberMutations: 'hamburberMutations',
+      crabMutations: 'crabMutations',
+      retroMutations: 'retroMutations',
+      royalMutations: 'royalMutations',
+      once_in_a_blue_moonMutations: 'once_in_a_blue_moonMutations',
+      technoMutations: 'technoMutations',
+      placeholder: 'Placeholder',
+      wicked_sickMutations: 'wicked_sickMutations',
+      summerMutations: 'summerMutations',
+      universalMutations: 'universalMutations',
+      mysticalMutations: 'mysticalMutations',
+      piMutations: 'piMutations',
+      determinationMutations: 'determinationMutations',
+      judgementMutations: 'judgementMutations',
       armageddonMutations: 'armageddonMutations',
-      abysmal:             '<span style="font-family:Blaka;font-size:100%;color:#004967">A B Y S M A L</span>',
-      multiversal:         '<span style="font-family:Allerta Stencil;font-size:100%;color:#4b3ba1">MULTIVERSAL</span>',
+      abysmal: '<span style="font-family:Blaka;font-size:100%;color:#004967">A B Y S M A L</span>',
+      multiversal: '<span style="font-family:Allerta Stencil;font-size:100%;color:#4b3ba1">MULTIVERSAL</span>',
       astronomical:
-                '<span style="font-family:\'Space Mono\';font-size:100%;color:#693ba1">ASTRONOMICAL</span>',
+        '<span style="font-family:\'Space Mono\';font-size:100%;color:#693ba1">ASTRONOMICAL</span>',
       infinite_cosmos:
-                '<span style="font-family:Merriweather;font-size:100%;color:#7a83ff">Infinite Cosmos</span>',
+        '<span style="font-family:Merriweather;font-size:100%;color:#7a83ff">Infinite Cosmos</span>',
       astro_divinity:
-                '<span style="font-family:Sarpanch;font-size:100%;color:#c9d984">Astro-Divinity</span>',
-      digitalizedMutations:'digitalizedMutations',
+        '<span style="font-family:Sarpanch;font-size:100%;color:#c9d984">Astro-Divinity</span>',
+      digitalizedMutations: 'digitalizedMutations',
       redacted:
-                '<span style="font-family:\'Arial Black\';font-size:100%">REDACTED</span>',
+        '<span style="font-family:\'Arial Black\';font-size:100%">REDACTED</span>',
       karma:
-                '<span style="font-family:Karma;font-size:100%;color:#b300ff">Karma</span>',
+        '<span style="font-family:Karma;font-size:100%;color:#b300ff">Karma</span>',
       polaris:
-                '<span style="font-family:Aguafina Script;font-size:125%;color:#00ffff">POLARIS</span>',
+        '<span style="font-family:Aguafina Script;font-size:125%;color:#00ffff">POLARIS</span>',
       corrupted:
-                '<span style="font-family:Qwitcher Grypen;font-size:125%;color:#5b00a6">C o r r u p t e d</span>',
+        '<span style="font-family:Qwitcher Grypen;font-size:125%;color:#5b00a6">C o r r u p t e d</span>',
       zenith:
-                '<span style="font-family:\'Zen Dots\';font-size:100%;color:#82bcff">ZENITH</span>',
+        '<span style="font-family:\'Zen Dots\';font-size:100%;color:#82bcff">ZENITH</span>',
       coalescence:
-                '<b><i><span style="background:linear-gradient(135deg,#6a009c,#29003c);' +
-                '-webkit-background-clip:text;color:transparent;font-family:Merriweather">// Coalescence //</span></i></b>',
+        '<b><i><span style="background:linear-gradient(135deg,#6a009c,#29003c);' +
+        '-webkit-background-clip:text;color:transparent;font-family:Merriweather">// Coalescence //</span></i></b>',
       lustrous:
-                '<span style="font-family:\'Kalnia Glaze\';font-size:125%;color:#ee48eb">★ Lustrous ★</span>',
+        '<span style="font-family:\'Kalnia Glaze\';font-size:125%;color:#ee48eb">★ Lustrous ★</span>',
       apotheosis:
-                '<b><span style="background:linear-gradient(to right,#670000,#000);' +
-                '-webkit-background-clip:text;color:transparent;font-family:Merriweather;font-size:120%">— APOTHEOSIS —</span></b>',
-      nil:     'nil',
+        '<b><span style="background:linear-gradient(to right,#670000,#000);' +
+        '-webkit-background-clip:text;color:transparent;font-family:Merriweather;font-size:120%">— APOTHEOSIS —</span></b>',
+      nil: 'nil',
       // secret error rarity
       error:
         '<span style="font-family:Arial;font-size:125%;color:#ff00ff">|||</span> ' +
@@ -329,58 +456,58 @@
         key: 'opposite_day',
         denom: 20000000,
         start: { m: 6, d: 12 },
-        end:   { m: 7, d: 1 },
+        end: { m: 7, d: 1 },
         display: displayMap.opposite_day
       },
       {
         key: 'beeg',
         denom: 1048576,
         start: { m: 7, d: 7 },
-        end:   { m: 7, d: 28 },
+        end: { m: 7, d: 28 },
         display: displayMap.beeg
       },
       {
         key: 'gingerbread',
         denom: 2500,
         start: { m: 11, d: 28 },
-        end:   { m: 1, d: 1 },
+        end: { m: 1, d: 1 },
         display: displayMap.gingerbread
       },
       {
         key: 'firework',
         denom: 592025,
         start: { m: 5, d: 9 },
-        end:   { m: 5, d: 16 },
+        end: { m: 5, d: 16 },
       },
       {
         key: 'retro_classical_legacy',
         denom: 768000,
         start: { m: 5, d: 9 },
-        end:   { m: 5, d: 16 },
+        end: { m: 5, d: 16 },
       },
       {
         key: 'absolute_zero',
         denom: 800000,
         start: { m: 12, d: 25 },
-        end:   { m: 12, d: 31 },
+        end: { m: 12, d: 31 },
       },
       {
         key: 'hamburger',
         denom: 10240,
         start: { m: 4, d: 1 },
-        end:   { m: 4, d: 14 },
+        end: { m: 4, d: 14 },
       },
       {
         key: 'beach',
         denom: 6000,
         start: { m: 1, d: 10 },
-        end:   { m: 1, d: 20 },
+        end: { m: 1, d: 20 },
       },
       {
         key: 'haunted',
         denom: 31000,
         start: { m: 10, d: 25 },
-        end:   { m: 11, d: 7 },
+        end: { m: 11, d: 7 },
       }
     ];
 
@@ -388,8 +515,8 @@
     function isLimitedActive(def) {
       if (!def.start) return true;
       const now = new Date(),
-            s = new Date(now.getFullYear(), def.start.m - 1, def.start.d),
-            e = new Date(now.getFullYear(), def.end.m - 1, def.end.d);
+        s = new Date(now.getFullYear(), def.start.m - 1, def.start.d),
+        e = new Date(now.getFullYear(), def.end.m - 1, def.end.d);
       return e < s ? (now >= s || now <= e) : (now >= s && now <= e);
     }
     function getPool() {
@@ -399,8 +526,8 @@
     // UI Updates
     function updateStatus() {
       document.getElementById('rebirthStatus').textContent = `Rebirths: ${rebirthCount}`;
-      document.getElementById('luckStatus').textContent    = `Luck: x${getLuck().toFixed(2)}`;
-      document.getElementById('cooldownStatus').textContent= `Cooldown: ${getCooldown().toFixed(3)} s`;
+      document.getElementById('luckStatus').textContent = `Luck: x${getLuck().toFixed(2)}`;
+      document.getElementById('cooldownStatus').textContent = `Cooldown: ${getCooldown().toFixed(3)} s`;
       updateControls();
     }
     function updateRebirthUI() {
@@ -409,9 +536,9 @@
       document.getElementById('rebirthBtn').disabled = rollCount < thr;
     }
     function updateControls() {
-      document.getElementById('autoBtn').disabled     = rebirthCount < 1;
-      document.getElementById('roll10Btn').disabled   = rebirthCount < 2;
-      document.getElementById('roll100Btn').disabled  = rebirthCount < 3;
+      document.getElementById('autoBtn').disabled = rebirthCount < 1;
+      document.getElementById('roll10Btn').disabled = rebirthCount < 2;
+      document.getElementById('roll100Btn').disabled = rebirthCount < 3;
       document.getElementById('roll1000Btn').disabled = rebirthCount < 4;
     }
 
@@ -428,7 +555,7 @@
       return pool[pool.length - 1];
     }
     function doRoll() {
-      const btn = document.getElementById('rollBtn'), cd = getCooldown() * 1000;
+      const btn = document.getElementById('rollBtn'), cd = getCooldown() * 0;
       btn.disabled = true;
       setTimeout(() => btn.disabled = false, cd);
 
@@ -519,15 +646,16 @@
       document.getElementById(tab.dataset.tab).classList.add('active');
     }));
     document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('rollBtn').onclick     = doRoll;
-      document.getElementById('autoBtn').onclick     = toggleAuto;
-      document.getElementById('roll10Btn').onclick   = () => batchRoll(10);
-      document.getElementById('roll100Btn').onclick  = () => batchRoll(100);
+      document.getElementById('rollBtn').onclick = doRoll;
+      document.getElementById('autoBtn').onclick = toggleAuto;
+      document.getElementById('roll10Btn').onclick = () => batchRoll(10);
+      document.getElementById('roll100Btn').onclick = () => batchRoll(100);
       document.getElementById('roll1000Btn').onclick = () => batchRoll(1000);
-      document.getElementById('rebirthBtn').onclick  = doRebirth;
-      document.getElementById('clearHistory').onclick= () => { historyKeys = []; saveAll(); renderHistory(); };
+      document.getElementById('rebirthBtn').onclick = doRebirth;
+      document.getElementById('clearHistory').onclick = () => { historyKeys = []; saveAll(); renderHistory(); };
       updateStatus(); updateRebirthUI(); renderHistory(); renderInventory(); renderIndex();
     });
   </script>
 </body>
+
 </html>
