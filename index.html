@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Perchance RNG with Rebirth Bar</title>
+  <title>🎲 Perchance RNG with Rebirths & Batch Rolls</title>
   <style>
     body { font-family: Arial, sans-serif; background: #f2f2f2; margin: 0; padding: 0; color: #333; }
     .status-bar { text-align: center; padding: 10px; }
     .status-bar span { margin: 0 15px; font-weight: bold; }
     .status-bar progress { width: 200px; height: 16px; vertical-align: middle; }
-    .container { max-width: 600px; margin: 0 auto 50px; background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
-    .tabs { display: flex; border-bottom: 1px solid #ccc; }
+    .container { max-width: 600px; margin: 20px auto 50px; background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+    .tabs { display: flex; border-bottom: 1px solid #ccc; margin-bottom: 15px; }
     .tab { flex: 1; padding: 10px; cursor: pointer; }
     .tab.active { border-bottom: 3px solid #333; font-weight: bold; }
     .tab-content { display: none; padding: 20px 0; }
@@ -23,8 +23,8 @@
     ul { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; text-align: left; }
     li { margin-bottom: 5px; }
     .expired { color: #999; font-style: italic; }
-    @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
-    @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    @keyframes pop { 0% { transform: scale(1);} 50% { transform: scale(1.2);} 100% { transform: scale(1);} }
+    @keyframes flash { 0% { opacity: 1;} 50% { opacity: 0.3;} 100% { opacity: 1;} }
     .anim-pop { animation: pop 0.5s ease; }
     .anim-flash { animation: flash 1s ease; }
   </style>
@@ -34,8 +34,7 @@
   <div class="status-bar">
     <span id="rebirthStatus">Rebirths: 0</span>
     <span id="luckStatus">Luck: x1.00</span>
-    <span id="cooldownStatus">Cooldown: 0.500 s</span>
-    <br>
+    <span id="cooldownStatus">Cooldown: 0.500 s</span><br>
     <progress id="rebirthProgress" max="1" value="0"></progress>
     <button id="rebirthBtn" disabled>Rebirth</button>
   </div>
@@ -51,7 +50,10 @@
     <div id="rolls" class="tab-content active">
       <div id="roll-controls">
         <button id="rollBtn">Roll</button>
-        <button id="autoBtn">Start Auto</button>
+        <button id="autoBtn" disabled>Start Auto</button>
+        <button id="roll10Btn" disabled>Roll ×10</button>
+        <button id="roll100Btn" disabled>Roll ×100</button>
+        <button id="roll1000Btn" disabled>Roll ×1000</button>
       </div>
       <div id="result">Click Roll to start!</div>
       <button id="clearHistory">Clear All</button>
@@ -67,12 +69,15 @@
     </div>
     <div id="logs" class="tab-content">
       <h3>Logs</h3>
-      <ul><li>V6.405 – Rebirth Bar Added</li></ul>
+      <ul><li>V6.406 – Batch Rolls & Rebirth Unlocks Added</li></ul>
     </div>
   </div>
 
   <script>
-    // ─── Config & State ─────────────────────────────────────────────
+    // ─── Persistence & State Initialization ────────────────────────
+    let historyKeys = JSON.parse(localStorage.getItem('history')) || [];
+    let inventory   = JSON.parse(localStorage.getItem('inventory')) || {};
+
     const initialCooldown = 0.5;
     let rebirthCount = parseInt(localStorage.getItem('rebirthCount')) || 0;
     let rollCount    = parseInt(localStorage.getItem('rollCount'))    || 0;
@@ -80,9 +85,8 @@
 
     function getCooldown() { return Math.max(0, initialCooldown - 0.001 * rebirthCount); }
     function getLuck()     { return 1 + 0.25 * rebirthCount; }
-    function getThreshold(){ return 1e6 * Math.pow(1000, rebirthCount); }
+    function getThreshold(){ return (rebirthCount === 0 ? 1000 : 1e6 * Math.pow(1000, rebirthCount - 1)); }
 
-    // ─── Rarity + Mutation Data ───────────────────────────────────────
 
     const displayMap = {
       common:   'Common',
@@ -380,171 +384,149 @@
       }
     ];
 
-    // ─── Helpers ─────────────────────────────────────────────────────
-    function isLimitedActive(def){
-      if(!def.start) return true;
-      const t=new Date(), s=new Date(t.getFullYear(),def.start.m-1,def.start.d),
-            e=new Date(t.getFullYear(),def.end.m-1,def.end.d);
-      return e<s?(t>=s||t<=e):(t>=s&&t<=e);
+    // Helpers
+    function isLimitedActive(def) {
+      if (!def.start) return true;
+      const now = new Date(),
+            s = new Date(now.getFullYear(), def.start.m - 1, def.start.d),
+            e = new Date(now.getFullYear(), def.end.m - 1, def.end.d);
+      return e < s ? (now >= s || now <= e) : (now >= s && now <= e);
     }
-    function getPool(){
-      return baseRarities
-        .concat(limitedDefs.filter(isLimitedActive));
+    function getPool() {
+      return baseRarities.concat(limitedDefs.filter(isLimitedActive));
     }
 
-    // ─── Rolling & Rebirth UI ────────────────────────────────────────
-    function selectRarity(pool){
-      const lm=getLuck(),
-            w=pool.map(r=>lm/r.denom),
-            tot=w.reduce((a,b)=>a+b,0);
-      let rnd=Math.random()*tot;
-      for(let i=0;i<pool.length;i++){
-        rnd-=w[i];
-        if(rnd<=0) return pool[i];
+    // UI Updates
+    function updateStatus() {
+      document.getElementById('rebirthStatus').textContent = `Rebirths: ${rebirthCount}`;
+      document.getElementById('luckStatus').textContent    = `Luck: x${getLuck().toFixed(2)}`;
+      document.getElementById('cooldownStatus').textContent= `Cooldown: ${getCooldown().toFixed(3)} s`;
+      updateControls();
+    }
+    function updateRebirthUI() {
+      const thr = getThreshold();
+      document.getElementById('rebirthProgress').value = Math.min(1, rollCount / thr);
+      document.getElementById('rebirthBtn').disabled = rollCount < thr;
+    }
+    function updateControls() {
+      document.getElementById('autoBtn').disabled     = rebirthCount < 1;
+      document.getElementById('roll10Btn').disabled   = rebirthCount < 2;
+      document.getElementById('roll100Btn').disabled  = rebirthCount < 3;
+      document.getElementById('roll1000Btn').disabled = rebirthCount < 4;
+    }
+
+    // Actions
+    function selectRarity(pool) {
+      const luck = getLuck();
+      const weights = pool.map(r => luck / r.denom);
+      let total = weights.reduce((a, b) => a + b, 0);
+      let rnd = Math.random() * total;
+      for (let i = 0; i < pool.length; i++) {
+        rnd -= weights[i];
+        if (rnd <= 0) return pool[i];
       }
-      return pool[pool.length-1];
+      return pool[pool.length - 1];
     }
-
-    function doRoll(){
-      const btn=document.getElementById('rollBtn'),
-            cd=getCooldown()*1000;
-      btn.disabled=true;
-      setTimeout(()=>btn.disabled=false,cd);
+    function doRoll() {
+      const btn = document.getElementById('rollBtn'), cd = getCooldown() * 1000;
+      btn.disabled = true;
+      setTimeout(() => btn.disabled = false, cd);
 
       rollCount++;
-      localStorage.setItem('rollCount',rollCount);
-
-      // update rebirth bar
+      localStorage.setItem('rollCount', rollCount);
       updateRebirthUI();
 
       const r = selectRarity(getPool());
       historyKeys.unshift(r.key);
-      inventory[r.key] = (inventory[r.key]||0) + 1;
+      inventory[r.key] = (inventory[r.key] || 0) + 1;
       saveAll();
 
-      document.getElementById('result').innerHTML =
-        `You rolled ${displayMap[r.key]||r.key}!`;
+      document.getElementById('result').innerHTML = `You rolled ${displayMap[r.key] || r.key}!`;
       animateResult(r.denom);
-      renderHistory();
-      renderInventory();
-      renderIndex();
+      renderHistory(); renderInventory(); renderIndex(); updateStatus();
     }
-
-    function doRebirth(){
+    function batchRoll(n) {
+      for (let i = 0; i < n; i++) {
+        doRoll();
+      }
+    }
+    function doRebirth() {
       rebirthCount++;
-      rollCount=0;
-      localStorage.setItem('rebirthCount',rebirthCount);
-      localStorage.setItem('rollCount',rollCount);
-      updateStatus();
-      updateRebirthUI();
+      rollCount = 0;
+      localStorage.setItem('rebirthCount', rebirthCount);
+      localStorage.setItem('rollCount', rollCount);
+      updateStatus(); updateRebirthUI();
       alert(`🎉 Rebirth #${rebirthCount}! Luck ×${getLuck().toFixed(2)}, Cooldown ${getCooldown().toFixed(3)} s`);
     }
-
-    function updateRebirthUI(){
-      const prog = document.getElementById('rebirthProgress'),
-            btn  = document.getElementById('rebirthBtn'),
-            thr  = getThreshold();
-      prog.value = Math.min(1, rollCount / thr);
-      if(rollCount >= thr){
-        btn.disabled = false;
-      } else {
-        btn.disabled = true;
-      }
-    }
-
-    function toggleAuto(){
-      const btn=document.getElementById('autoBtn');
-      if(autoInterval){
+    function toggleAuto() {
+      const btn = document.getElementById('autoBtn');
+      if (autoInterval) {
         clearInterval(autoInterval);
-        autoInterval=null;
-        btn.textContent='Start Auto';
+        autoInterval = null;
+        btn.textContent = 'Start Auto';
       } else {
-        autoInterval=setInterval(doRoll, Math.max(1, getCooldown()*1000));
-        btn.textContent='Stop Auto';
+        autoInterval = setInterval(doRoll, Math.max(1, getCooldown() * 1000));
+        btn.textContent = 'Stop Auto';
       }
     }
 
-    // ─── Persistence & Rendering ─────────────────────────────────────
-    let historyKeys = JSON.parse(localStorage.getItem('history'))||[],
-        inventory   = JSON.parse(localStorage.getItem('inventory'))||{};
-
-    function saveAll(){
-      localStorage.setItem('history',JSON.stringify(historyKeys));
-      localStorage.setItem('inventory',JSON.stringify(inventory));
+    // Persistence & Rendering
+    function saveAll() {
+      localStorage.setItem('history', JSON.stringify(historyKeys));
+      localStorage.setItem('inventory', JSON.stringify(inventory));
     }
-
-    function renderHistory(){
-      const ul=document.getElementById('history');
-      ul.innerHTML='';
-      historyKeys.forEach(k=>{
-        const r=getPool().find(x=>x.key===k)||baseRarities.find(x=>x.key===k);
-        if(!r) return;
-        ul.insertAdjacentHTML('beforeend',
-          `<li>${displayMap[k]||k} (1/${r.denom.toLocaleString()})</li>`
-        );
+    function renderHistory() {
+      const ul = document.getElementById('history');
+      ul.innerHTML = '';
+      historyKeys.forEach(k => {
+        const r = getPool().find(x => x.key === k) || baseRarities.find(x => x.key === k);
+        if (!r) return;
+        ul.insertAdjacentHTML('beforeend', `<li>${displayMap[k] || k} (1/${r.denom.toLocaleString()})</li>`);
       });
     }
-    function renderInventory(){
-      const ul=document.getElementById('inventoryList');
-      ul.innerHTML='';
-      baseRarities.concat(limitedDefs).forEach(r=>{
-        if(inventory[r.key]){
-          const pct=(100/r.denom).toFixed(4)+'%';
-          ul.insertAdjacentHTML('beforeend',
-            `<li>${displayMap[r.key]||r.key} x${inventory[r.key]} (${pct})</li>`
-          );
+    function renderInventory() {
+      const ul = document.getElementById('inventoryList');
+      ul.innerHTML = '';
+      baseRarities.concat(limitedDefs).forEach(r => {
+        if (inventory[r.key]) {
+          const pct = (100 / r.denom).toFixed(4) + '%';
+          ul.insertAdjacentHTML('beforeend', `<li>${displayMap[r.key] || r.key} x${inventory[r.key]} (${pct})</li>`);
         }
       });
     }
-    function renderIndex(){
-      const ul=document.getElementById('rarityList');
-      ul.innerHTML='';
-      const all=baseRarities.concat(limitedDefs),
-            sorted=all
-              .filter(r=>!limitedDefs.find(l=>l.key===r.key))
-              .sort((a,b)=>a.denom-b.denom)
-              .concat(limitedDefs);
-      sorted.forEach(r=>{
-        const exp = limitedDefs.find(l=>l.key===r.key)&&!isLimitedActive(r);
-        ul.insertAdjacentHTML('beforeend',
-          `<li class="${exp?'expired':''}">${displayMap[r.key]||r.key} (1/${r.denom.toLocaleString()})${exp?' (Expired)':''}</li>`
-        );
+    function renderIndex() {
+      const ul = document.getElementById('rarityList');
+      ul.innerHTML = '';
+      const all = baseRarities.concat(limitedDefs);
+      const sorted = all.filter(r => !limitedDefs.find(l => l.key === r.key)).sort((a, b) => a.denom - b.denom).concat(limitedDefs);
+      sorted.forEach(r => {
+        const expired = limitedDefs.find(l => l.key === r.key) && !isLimitedActive(r);
+        ul.insertAdjacentHTML('beforeend', `<li class="${expired ? 'expired' : ''}">${displayMap[r.key] || r.key} (1/${r.denom.toLocaleString()})${expired ? ' (Expired)' : ''}</li>`);
       });
     }
-    function updateStatus(){
-      document.getElementById('rebirthStatus').textContent = `Rebirths: ${rebirthCount}`;
-      document.getElementById('luckStatus').textContent    = `Luck: x${getLuck().toFixed(2)}`;
-      document.getElementById('cooldownStatus').textContent= `Cooldown: ${getCooldown().toFixed(3)} s`;
-    }
-    function animateResult(denom){
-      const el=document.getElementById('result');
-      el.classList.remove('anim-pop','anim-flash');
-      if(denom>=1e8) el.classList.add('anim-flash');
-      else if(denom>=1e5) el.classList.add('anim-pop');
+    function animateResult(denom) {
+      const el = document.getElementById('result');
+      el.classList.remove('anim-pop', 'anim-flash');
+      if (denom >= 1e8) el.classList.add('anim-flash');
+      else if (denom >= 1e5) el.classList.add('anim-pop');
     }
 
-    // ─── Tabs & Init ─────────────────────────────────────────────
-    document.querySelectorAll('.tab').forEach(tab=>
-      tab.addEventListener('click', ()=>{
-        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById(tab.dataset.tab).classList.add('active');
-      })
-    );
-
-    document.addEventListener('DOMContentLoaded', ()=>{
-      document.getElementById('rollBtn').onclick        = doRoll;
-      document.getElementById('autoBtn').onclick        = toggleAuto;
-      document.getElementById('rebirthBtn').onclick     = doRebirth;
-      document.getElementById('clearHistory').onclick   = ()=>{
-        historyKeys=[]; saveAll(); renderHistory();
-      };
-      updateStatus();
-      updateRebirthUI();
-      renderHistory();
-      renderInventory();
-      renderIndex();
+    // Tabs & Init
+    document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab).classList.add('active');
+    }));
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('rollBtn').onclick     = doRoll;
+      document.getElementById('autoBtn').onclick     = toggleAuto;
+      document.getElementById('roll10Btn').onclick   = () => batchRoll(10);
+      document.getElementById('roll100Btn').onclick  = () => batchRoll(100);
+      document.getElementById('roll1000Btn').onclick = () => batchRoll(1000);
+      document.getElementById('rebirthBtn').onclick  = doRebirth;
+      document.getElementById('clearHistory').onclick= () => { historyKeys = []; saveAll(); renderHistory(); };
+      updateStatus(); updateRebirthUI(); renderHistory(); renderInventory(); renderIndex();
     });
   </script>
 </body>
