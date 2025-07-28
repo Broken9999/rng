@@ -2,209 +2,550 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>🎲 Infinite RNG + Mutations</title>
+  <title>Perchance RNG with Rebirth Bar</title>
   <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: 'Arial Rounded', sans-serif;
-      background-color: #111;
-      color: #fff;
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      background: #1a1a1a;
-      padding: 10px 20px;
-      text-align: center;
-      border-bottom: 1px solid #333;
-    }
-    header h1 {
-      font-size: 20px;
-      margin: 0;
-      color: #ffcc00;
-    }
-    nav {
-      display: flex;
-      justify-content: center;
-      background-color: #222;
-      border-bottom: 1px solid #333;
-    }
-    nav button {
-      background: none;
-      color: #ccc;
-      border: none;
-      padding: 12px 20px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    nav button:hover, nav button.active {
-      color: #ffcc00;
-      border-bottom: 2px solid #ffcc00;
-    }
-    main {
-      max-width: 800px;
-      margin: auto;
-      padding: 20px;
-      text-align: center;
-    }
-    button {
-      font-size: 15px;
-      padding: 10px 20px;
-      margin: 6px;
-      border: none;
-      border-radius: 25px;
-      background-color: #ffcc00;
-      color: #111;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #ffe066;
-    }
-    .screen { display: none; }
-    .screen.active { display: block; }
-    .coin-counter {
-      font-size: 18px;
-      margin-bottom: 10px;
-      text-align: right;
-      color: #ffcc00;
-    }
-    .rarity-2 { color: #ccc; }
-    .rarity-5 { color: #66cc66; }
-    .rarity-10 { color: #3399ff; }
-    .rarity-25 { color: #cc66ff; }
-    .rarity-50 { color: #ff9900; }
-    .rarity-100 { color: gold; font-weight: bold; }
-    .small { font-size: 13px; color: #aaa; }
+    body { font-family: Arial, sans-serif; background: #f2f2f2; margin: 0; padding: 0; color: #333; }
+    .status-bar { text-align: center; padding: 10px; }
+    .status-bar span { margin: 0 15px; font-weight: bold; }
+    .status-bar progress { width: 200px; height: 16px; vertical-align: middle; }
+    .container { max-width: 600px; margin: 0 auto 50px; background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+    .tabs { display: flex; border-bottom: 1px solid #ccc; }
+    .tab { flex: 1; padding: 10px; cursor: pointer; }
+    .tab.active { border-bottom: 3px solid #333; font-weight: bold; }
+    .tab-content { display: none; padding: 20px 0; }
+    .tab-content.active { display: block; }
+    #roll-controls { margin-bottom: 15px; }
+    button { margin: 0 5px; background: #888; color: #fff; border: none; border-radius: 25px; padding: 8px 20px; cursor: pointer; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    #clearHistory { background: #d9534f; }
+    #rebirthBtn { background: #28a745; }
+    #result { margin-top: 10px; font-size: 1.1em; min-height: 1.2em; }
+    ul { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; text-align: left; }
+    li { margin-bottom: 5px; }
+    .expired { color: #999; font-style: italic; }
+    @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+    @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    .anim-pop { animation: pop 0.5s ease; }
+    .anim-flash { animation: flash 1s ease; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>🎲 Infinite RNG + Mutations</h1>
-  </header>
-  <nav>
-    <button onclick="switchScreen('rng')" class="active">🎲 RNG</button>
-    <button onclick="switchScreen('shop')">🛍️ Shop</button>
-    <button onclick="switchScreen('market')">🧺 Market</button>
-    <button onclick="switchScreen('brew')">⚗️ Brew</button>
-  </nav>
-  <main>
-    <div class="coin-counter">Coins: <span id="coinCount">0</span></div>
 
-    <div id="rng" class="screen active">
-      <div>
-        <button onclick="roll(1)">Roll x1</button>
-        <button onclick="roll(10)">Roll x10</button>
-        <button onclick="roll(100)">Roll x100</button>
-        <button onclick="toggleAutoRoll()"><span id="autoLabel">Start Auto Roll</span></button>
+  <div class="status-bar">
+    <span id="rebirthStatus">Rebirths: 0</span>
+    <span id="luckStatus">Luck: x1.00</span>
+    <span id="cooldownStatus">Cooldown: 0.500 s</span>
+    <br>
+    <progress id="rebirthProgress" max="1" value="0"></progress>
+    <button id="rebirthBtn" disabled>Rebirth</button>
+  </div>
+
+  <div class="container">
+    <h1>🎲 Perchance RNG 🎲</h1>
+    <div class="tabs">
+      <div class="tab active" data-tab="rolls">Rolls</div>
+      <div class="tab" data-tab="index">Index</div>
+      <div class="tab" data-tab="inventory">Inventory</div>
+      <div class="tab" data-tab="logs">Logs</div>
+    </div>
+    <div id="rolls" class="tab-content active">
+      <div id="roll-controls">
+        <button id="rollBtn">Roll</button>
+        <button id="autoBtn">Start Auto</button>
       </div>
-      <div>
-        <button onclick="showInventory()">📦 Inventory</button>
-        <button onclick="clearRolls()">🧹 Clear Rolls</button>
-      </div>
-      <div class="section" id="resultText">?</div>
-      <div class="section" id="rollHistory"></div>
-      <div class="section" id="leaderboard"></div>
+      <div id="result">Click Roll to start!</div>
+      <button id="clearHistory">Clear All</button>
+      <ul id="history"></ul>
     </div>
-
-    <div id="shop" class="screen">
-      <h2>🛍️ Shop</h2>
-      <p>Buy potions and pills to boost your luck.</p>
-      <button onclick="buyPotion()">Buy Potion (+50% for 10 rolls) - 10 coins</button><br>
-      <button onclick="buyPill()">Buy Pill (Unlocks ultra rarity) - 50 coins</button>
+    <div id="index" class="tab-content">
+      <h3>Rarity Index</h3>
+      <ul id="rarityList"></ul>
     </div>
-
-    <div id="market" class="screen">
-      <h2>🧺 Market</h2>
-      <p>Sell your crafted cards for coins.</p>
-      <button onclick="sellCard()">Sell Card - 5 coins</button>
+    <div id="inventory" class="tab-content">
+      <h3>Your Inventory</h3>
+      <ul id="inventoryList"></ul>
     </div>
-
-    <div id="brew" class="screen">
-      <h2>⚗️ Brew</h2>
-      <p>Craft new cards using rare rolls.</p>
-      <button onclick="craftCard()">Craft Card (uses rare roll)</button>
+    <div id="logs" class="tab-content">
+      <h3>Logs</h3>
+      <ul><li>V6.405 – Rebirth Bar Added</li></ul>
     </div>
-  </main>
+  </div>
 
   <script>
-    let coins = 0;
-    let potionCount = 0;
-    let pillUsed = false;
+    // ─── Config & State ─────────────────────────────────────────────
+    const initialCooldown = 0.5;
+    let rebirthCount = parseInt(localStorage.getItem('rebirthCount')) || 0;
+    let rollCount    = parseInt(localStorage.getItem('rollCount'))    || 0;
+    let autoInterval = null;
 
-    function switchScreen(id) {
-      document.querySelectorAll('.screen').forEach(div => div.classList.remove('active'));
-      document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
-      document.getElementById(id).classList.add('active');
-      document.querySelector(`nav button[onclick="switchScreen('${id}')"]`).classList.add('active');
+    function getCooldown() { return Math.max(0, initialCooldown - 0.001 * rebirthCount); }
+    function getLuck()     { return 1 + 0.25 * rebirthCount; }
+    function getThreshold(){ return 1e6 * Math.pow(1000, rebirthCount); }
+
+    // ─── Rarity + Mutation Data ───────────────────────────────────────
+
+    const displayMap = {
+      common:   'Common',
+      uncommon: '<span style="font-family:Arial;font-size:100%;color:#54ff82">Uncommon 🍀</span>',
+      rare:     '<span style="font-family:Arial;font-size:100%;color:#00b3ff">Rare 💎</span>',
+      epic:     '<span style="font-family:Arial;font-size:100%;color:#0000ff">Epic 🌌</span>',
+      mythical: '<span style="font-family:Arial;font-size:100%;color:#a200ff">Mythical 🐉</span>',
+      golden:   '<span style="font-family:Arial;font-size:100%;color:#f1c232">Golden ✨</span>',
+      legendary:'<span style="font-family:\'Jacquard 12\';font-size:100%;color:#ffff00">Legendary 🔥</span>',
+      '100':    '💯',
+      extraordinary:'<span style="font-family:Arial;font-size:100%;color:#058009">Extraordinary</span>',
+      crimson:  '<span style="font-family:Spectral;font-size:100%;color:#980000">Crimson</span>',
+      divine:   '<span style="font-family:Arial;font-size:100%;color:#fff200">Divine</span>',
+      copper:   '<span style="font-family:Arial;font-size:100%;color:#e69138">Copper</span>',
+      nuclear:  '<span style="font-family:Arial;font-size:100%;color:#58ff58">Nuclear</span>',
+      aqua:     '<span style="font-family:Arial;font-size:100%;color:#7c7cff">Aqua</span>',
+      superb:   '<span style="font-family:Arial;font-size:100%;color:#00ffff">Superb</span>',
+      phantom:  '<span style="font-family:\'Aguafina Script\';font-size:100%;color:#abd9ff">Phantom</span>',
+      jackpot:  '<b><span style="font-family:Arial;font-size:100%;color:#00ff00">$</span></b> ' +
+                '<span style="font-family:\'Jacques Francois Shadow\';font-size:100%;color:#ffff00">Jackpot</span> ' +
+                '<b><span style="font-family:Arial;font-size:100%;color:#00ff00">$</span></b>',
+      neon:     '<span style="font-family:Neonderthaw;font-size:100%;color:#00ff00">Neon</span>',
+      flow:     '<span style="font-family:\'Flow Circular\';font-size:100%">Flow</span>',
+      perchance:'<span style="font-family:Arial Rounded;font-size:120%;' +
+                'background:linear-gradient(to right,#d9d9d9,#919191);' +
+                '-webkit-background-clip:text;color:transparent">🎲Perchance🎲</span>',
+      hamburber:'<span style="font-family:Chewy;font-size:100%;color:#eb8034">🍔Hamburber🍔</span>',
+      hacked:   '<i><b><span style="font-family:Michroma;font-size:100%;color:#38761d">H4CK3D</span></b></i>',
+      crab:     '<span style="font-family:Chewy;font-size:100%;color:#eb3434">🦀Crab🦀</span>',
+      retro:    '<span style="font-family:Tiny5;font-size:100%;color:#00ff00">Retro</span>',
+      unknown:  '<span style="font-family:Wingdings;font-size:100%;color:#636363">Unknown</span>',
+      steampunk:'<span style="font-family:Hahmlet;font-size:100%;color:#bf9000">⚙️ STEAMPUNK ⚙️</span>',
+      starry:   '<b><span style="font-family:Codystar;font-size:100%;color:#9582ff">Starry</span></b>',
+      gambling_moment:
+                '<span style="font-family:Arial;font-size:100%;color:#00ff00">🎲 Gambling</span>',
+      legendary_supreme:
+                '<span style="font-family:Balthazar;font-size:100%;color:#ffb300">👑 Supreme</span>',
+      tangerine:'<span style="font-family:Tangerine;font-size:150%;color:#ed8b00">Tangerine</span>',
+      crab_sushi_roll:
+                '<span style="font-family:Chewy;font-size:100%;color:#ffa987">🍣 Sushi</span>',
+      wicked_sick:
+                '<span style="font-family:\'Sedgwick Ave Display\';font-size:100%;color:#bd0000">🤯 Wicked</span>',
+      summer:   '<span style="font-family:Honk;font-size:100%">☀ Summer</span>',
+      universal:'<span style="font-family:Merriweather;font-size:100%;color:#2e0c7e">🪐 Universal</span>',
+      retro_classical:
+                '<span style="font-family:\'Sixtyfour Convergence\';font-size:100%;color:#00ff00">🕹️ Retro‑Classical</span>',
+      techno_malware:
+                '<span style="font-family:\'Rubik Glitch\';font-size:100%;color:#ff6b6b">💾 Malware</span>',
+      quasar:   '<span style="font-family:\'Nova Mono\';font-size:100%;color:#b3a700">✨ Quasar</span>',
+      isolated: '<span style="font-family:\'Caesar Dressing\';font-size:100%;color:#b861ff">🧩 Isolated</span>',
+      retro_pixelated:
+                '<span style="font-family:\'Rubik Pixels\';font-size:100%;color:#00ff00">🧱 Pixelated</span>',
+      once_in_a_blue_moon:
+                '<b><span style="font-family:Arial;font-size:100%;color:#3686a0">☾</span></b> ' +
+                '<span style="font-family:Arial;font-size:100%;color:#3686a0">Blue Moon</span> ' +
+                '<b><span style="font-family:Arial;font-size:100%;color:#3686a0">☾</span></b>',
+      once_in_a_blood_moon:
+                '<b><span style="font-family:Arial;font-size:100%;color:#c65f5f">☾</span></b> ' +
+                '<span style="font-family:Arial;font-size:100%;color:#c65f5f">Blood Moon</span> ' +
+                '<b><span style="font-family:Arial;font-size:100%;color:#c65f5f">☾</span></b>',
+      summer_heatstroke:
+                '<span style="font-family:Honk;font-size:100%;">🔥 Heatstroke</span>',
+      techno_industrial:
+                '<span style="font-family:Arial;font-size:100%;color:#a3a3a3">⚙ Industrial</span>',
+      winter:   '<span style="font-family:Arial;font-size:100%;color:#00ffff">❄ Winter</span>',
+      swagger:  '<span style="font-family:\'Sedgwick Ave Display\';font-size:150%;color:#6ae400">😎 SWAGGER</span>',
+      wicked_sick_devilish:
+                '<span style="font-family:\'Sedgwick Ave Display\';font-size:100%;color:#660000">😈 Devilish</span>',
+      techno_virtual:
+                '<i><b><span style="font-family:Sarpanch;font-size:100%;color:#b500ff">🧠 Virtual</span></b></i>',
+      wicked_sick_radical:
+                '<i><span style="font-family:\'Sedgwick Ave Display\';font-size:130%;color:#0091ff">🎮 Radical</span></i>',
+      mystical_cryptic:
+                '<span style="font-family:Arial;font-size:100%;">🔮 Cryptic</span>',
+      retro_classical_legacy:
+                '<span style="font-family:Pixelify Sans;font-size:100%;color:#00ff00">🕹️ Legacy</span>',
+      absolute_zero:
+                '<span style="font-family:Iceberg;font-size:125%;color:#00ffea">🧊 Zero</span>',
+      mystical_arcane:
+                '<span style="font-family:Sarpanch;font-size:100%;color:#8175ff">🗲 Arcane</span>',
+      pi_calculus:
+                '<span style="font-family:Arial;font-size:100%;color:#d7bea8">🥧 π</span>',
+      royal_monarch:
+                '<span style="font-family:\'Bonheur Royale\';font-size:150%;color:#4169e1">♛ Monarch</span>',
+      judgement_doomed:
+                '<span style="font-family:Rye;font-size:100%;color:#00996b">⚖ DOOMED</span>',
+      mystical_light:
+                '<span style="font-family:Arial;font-size:100%;">☀ Light</span>',
+      mystical_dark:
+                '<span style="font-family:Arial;font-size:100%;">☾ Dark</span>',
+      isolated_limbo:
+                '<span style="font-family:Arial;font-size:100%;">🚪 Limbo</span>',
+      quasar_supernova:
+                '<span style="font-family:Arial;font-size:100%;">💥 Supernova</span>',
+      mystical_nexus:
+                '<span style="font-family:Arial;font-size:100%;">⍟ Nexus</span>',
+      determination_finale:
+                '<span style="font-family:Arial;font-size:100%;">❤️ Finale</span>',
+      armageddon_cataclysmic:
+                '<span style="font-family:Arial;font-size:100%;">🔥 Cataclysmic</span>',
+      euphoria_exotic:
+                '<span style="font-family:Arial;font-size:100%;">🌈 Euphoria</span>',
+      digitalized_1337:
+                '<span style="font-family:Arial;font-size:100%;">💾 1337</span>',
+      universal_zodiac:
+                '<span style="font-family:Arial;font-size:100%;">🌌 Zodiac</span>',
+      nice:     '<span style="font-family:Arial;font-size:100%;">😎 Nice</span>',
+      // rngR extras:
+      eleven_eleven: '1/1,111',
+      // rngL extras:
+      ordinary: 'Ordinary',
+      // rng extras (mutations & placeholders):
+      commonMutations:     'commonMutations',
+      legendaryMutations:  'legendaryMutations',
+      extraordinaryMutations:'extraordinaryMutations',
+      hamburberMutations:  'hamburberMutations',
+      crabMutations:       'crabMutations',
+      retroMutations:      'retroMutations',
+      royalMutations:      'royalMutations',
+      once_in_a_blue_moonMutations:'once_in_a_blue_moonMutations',
+      technoMutations:     'technoMutations',
+      placeholder:         'Placeholder',
+      wicked_sickMutations:'wicked_sickMutations',
+      summerMutations:     'summerMutations',
+      universalMutations:  'universalMutations',
+      mysticalMutations:   'mysticalMutations',
+      piMutations:         'piMutations',
+      determinationMutations:'determinationMutations',
+      judgementMutations:  'judgementMutations',
+      armageddonMutations: 'armageddonMutations',
+      abysmal:             '<span style="font-family:Blaka;font-size:100%;color:#004967">A B Y S M A L</span>',
+      multiversal:         '<span style="font-family:Allerta Stencil;font-size:100%;color:#4b3ba1">MULTIVERSAL</span>',
+      astronomical:
+                '<span style="font-family:\'Space Mono\';font-size:100%;color:#693ba1">ASTRONOMICAL</span>',
+      infinite_cosmos:
+                '<span style="font-family:Merriweather;font-size:100%;color:#7a83ff">Infinite Cosmos</span>',
+      astro_divinity:
+                '<span style="font-family:Sarpanch;font-size:100%;color:#c9d984">Astro-Divinity</span>',
+      digitalizedMutations:'digitalizedMutations',
+      redacted:
+                '<span style="font-family:\'Arial Black\';font-size:100%">REDACTED</span>',
+      karma:
+                '<span style="font-family:Karma;font-size:100%;color:#b300ff">Karma</span>',
+      polaris:
+                '<span style="font-family:Aguafina Script;font-size:125%;color:#00ffff">POLARIS</span>',
+      corrupted:
+                '<span style="font-family:Qwitcher Grypen;font-size:125%;color:#5b00a6">C o r r u p t e d</span>',
+      zenith:
+                '<span style="font-family:\'Zen Dots\';font-size:100%;color:#82bcff">ZENITH</span>',
+      coalescence:
+                '<b><i><span style="background:linear-gradient(135deg,#6a009c,#29003c);' +
+                '-webkit-background-clip:text;color:transparent;font-family:Merriweather">// Coalescence //</span></i></b>',
+      lustrous:
+                '<span style="font-family:\'Kalnia Glaze\';font-size:125%;color:#ee48eb">★ Lustrous ★</span>',
+      apotheosis:
+                '<b><span style="background:linear-gradient(to right,#670000,#000);' +
+                '-webkit-background-clip:text;color:transparent;font-family:Merriweather;font-size:120%">— APOTHEOSIS —</span></b>',
+      nil:     'nil',
+      // secret error rarity
+      error:
+        '<span style="font-family:Arial;font-size:125%;color:#ff00ff">|||</span> ' +
+        '<span style="font-family:\'Permanent Marker\';font-size:17px">3</span> ' +
+        '<span style="font-family:Fondamento;font-size:14px;color:#ff00ff"><u>R</u></span> ' +
+        '<span style="font-family:Sarpanch;font-size:22px">R</span> ' +
+        '<span style="font-family:Audiowide;font-size:17px;color:#ff00ff">0</span> ' +
+        '<span style="font-family:\'Caesar Dressing\';font-size:11px">R</span> ' +
+        '<span style="font-family:Arial;font-size:125%;color:#ff00ff">|||</span>'
+    };
+
+    const baseRarities = [
+      { key: 'common', denom: 2 },
+      { key: 'uncommon', denom: 4 },
+      { key: 'rare', denom: 8 },
+      { key: 'epic', denom: 16 },
+      { key: 'mythical', denom: 32 },
+      { key: 'golden', denom: 50 },
+      { key: 'legendary', denom: 64 },
+      { key: '100', denom: 100 },
+      { key: 'extraordinary', denom: 128 },
+      { key: 'crimson', denom: 200 },
+      { key: 'divine', denom: 256 },
+      { key: 'copper', denom: 300 },
+      { key: 'nuclear', denom: 400 },
+      { key: 'aqua', denom: 500 },
+      { key: 'superb', denom: 512 },
+      { key: 'phantom', denom: 600 },
+      { key: 'jackpot', denom: 777 },
+      { key: 'neon', denom: 800 },
+      { key: 'flow', denom: 900 },
+      { key: 'perchance', denom: 1000 },
+      { key: 'eleven_eleven', denom: 1111 },
+      { key: 'hacked', denom: 1337 },
+      { key: 'crab', denom: 1500 },
+      { key: 'retro', denom: 2048 },
+      { key: 'unknown', denom: 2476 },
+      { key: 'steampunk', denom: 3000 },
+      { key: 'starry', denom: 4096 },
+      { key: 'gambling_moment', denom: 4096 },
+      { key: 'legendary_supreme', denom: 6400 },
+      { key: 'tangerine', denom: 8192 },
+      { key: 'crab_sushi_roll', denom: 18000 },
+      { key: 'wicked_sick', denom: 20000 },
+      { key: 'summer', denom: 25000 },
+      { key: 'universal', denom: 50000 },
+      { key: 'retro_classical', denom: 51200 },
+      { key: 'techno_malware', denom: 55555 },
+      { key: 'quasar', denom: 75000 },
+      { key: 'isolated', denom: 76743 },
+      { key: 'retro_pixelated', denom: 98304 },
+      { key: 'once_in_a_blue_moon', denom: 10000 },
+      { key: 'once_in_a_blood_moon', denom: 100000 },
+      { key: 'summer_heatstroke', denom: 100000 },
+      { key: 'techno_industrial', denom: 111110 },
+      { key: 'winter', denom: 250000 },
+      { key: 'swagger', denom: 360000 },
+      { key: 'wicked_sick_devilish', denom: 400000 },
+      { key: 'techno_virtual', denom: 555550 },
+      { key: 'wicked_sick_radical', denom: 600000 },
+      { key: 'mystical_cryptic', denom: 750000 },
+      { key: 'retro_classical_legacy', denom: 768000 },
+      { key: 'mystical_arcane', denom: 1000000 },
+      { key: 'pi_calculus', denom: 1570795 },
+      { key: 'royal_monarch', denom: 2500000 },
+      { key: 'judgement_doomed', denom: 2666664 },
+      { key: 'mystical_light', denom: 5250000 },
+      { key: 'mystical_dark', denom: 5250000 },
+      { key: 'isolated_limbo', denom: 6139440 },
+      { key: 'quasar_supernova', denom: 7500000 },
+      { key: 'mystical_nexus', denom: 12000000 },
+      { key: 'determination_finale', denom: 17500000 },
+      { key: 'armageddon_cataclysmic', denom: 30000000 },
+      { key: 'euphoria_exotic', denom: 99999999 },
+      { key: 'digitalized_1337', denom: 100000000 },
+      { key: 'universal_zodiac', denom: 150000000 },
+      { key: 'nice', denom: 69000 }
+    ];
+
+    const limitedDefs = [
+      {
+        key: 'opposite_day',
+        denom: 20000000,
+        start: { m: 6, d: 12 },
+        end:   { m: 7, d: 1 },
+        display: displayMap.opposite_day
+      },
+      {
+        key: 'beeg',
+        denom: 1048576,
+        start: { m: 7, d: 7 },
+        end:   { m: 7, d: 28 },
+        display: displayMap.beeg
+      },
+      {
+        key: 'gingerbread',
+        denom: 2500,
+        start: { m: 11, d: 28 },
+        end:   { m: 1, d: 1 },
+        display: displayMap.gingerbread
+      },
+      {
+        key: 'firework',
+        denom: 592025,
+        start: { m: 5, d: 9 },
+        end:   { m: 5, d: 16 },
+      },
+      {
+        key: 'retro_classical_legacy',
+        denom: 768000,
+        start: { m: 5, d: 9 },
+        end:   { m: 5, d: 16 },
+      },
+      {
+        key: 'absolute_zero',
+        denom: 800000,
+        start: { m: 12, d: 25 },
+        end:   { m: 12, d: 31 },
+      },
+      {
+        key: 'hamburger',
+        denom: 10240,
+        start: { m: 4, d: 1 },
+        end:   { m: 4, d: 14 },
+      },
+      {
+        key: 'beach',
+        denom: 6000,
+        start: { m: 1, d: 10 },
+        end:   { m: 1, d: 20 },
+      },
+      {
+        key: 'haunted',
+        denom: 31000,
+        start: { m: 10, d: 25 },
+        end:   { m: 11, d: 7 },
+      }
+    ];
+
+    // ─── Helpers ─────────────────────────────────────────────────────
+    function isLimitedActive(def){
+      if(!def.start) return true;
+      const t=new Date(), s=new Date(t.getFullYear(),def.start.m-1,def.start.d),
+            e=new Date(t.getFullYear(),def.end.m-1,def.end.d);
+      return e<s?(t>=s||t<=e):(t>=s&&t<=e);
+    }
+    function getPool(){
+      return baseRarities
+        .concat(limitedDefs.filter(isLimitedActive));
     }
 
-    function updateCoins() {
-      document.getElementById('coinCount').textContent = coins;
+    // ─── Rolling & Rebirth UI ────────────────────────────────────────
+    function selectRarity(pool){
+      const lm=getLuck(),
+            w=pool.map(r=>lm/r.denom),
+            tot=w.reduce((a,b)=>a+b,0);
+      let rnd=Math.random()*tot;
+      for(let i=0;i<pool.length;i++){
+        rnd-=w[i];
+        if(rnd<=0) return pool[i];
+      }
+      return pool[pool.length-1];
     }
 
-    function roll(times = 1) {
-      const resultDiv = document.getElementById('resultText');
-      let result = `You rolled ${times} time(s)`;
-      resultDiv.innerHTML = result;
+    function doRoll(){
+      const btn=document.getElementById('rollBtn'),
+            cd=getCooldown()*1000;
+      btn.disabled=true;
+      setTimeout(()=>btn.disabled=false,cd);
+
+      rollCount++;
+      localStorage.setItem('rollCount',rollCount);
+
+      // update rebirth bar
+      updateRebirthUI();
+
+      const r = selectRarity(getPool());
+      historyKeys.unshift(r.key);
+      inventory[r.key] = (inventory[r.key]||0) + 1;
+      saveAll();
+
+      document.getElementById('result').innerHTML =
+        `You rolled ${displayMap[r.key]||r.key}!`;
+      animateResult(r.denom);
+      renderHistory();
+      renderInventory();
+      renderIndex();
     }
 
-    function toggleAutoRoll() {
-      autoRolling = !autoRolling;
-      document.getElementById("autoLabel").textContent =
-        autoRolling ? "Stop Auto Roll" : "Start Auto Roll";
-      if (autoRolling) {
-        autoInterval = setInterval(() => roll(1), 500);
+    function doRebirth(){
+      rebirthCount++;
+      rollCount=0;
+      localStorage.setItem('rebirthCount',rebirthCount);
+      localStorage.setItem('rollCount',rollCount);
+      updateStatus();
+      updateRebirthUI();
+      alert(`🎉 Rebirth #${rebirthCount}! Luck ×${getLuck().toFixed(2)}, Cooldown ${getCooldown().toFixed(3)} s`);
+    }
+
+    function updateRebirthUI(){
+      const prog = document.getElementById('rebirthProgress'),
+            btn  = document.getElementById('rebirthBtn'),
+            thr  = getThreshold();
+      prog.value = Math.min(1, rollCount / thr);
+      if(rollCount >= thr){
+        btn.disabled = false;
       } else {
+        btn.disabled = true;
+      }
+    }
+
+    function toggleAuto(){
+      const btn=document.getElementById('autoBtn');
+      if(autoInterval){
         clearInterval(autoInterval);
-      }
-    }
-
-    function showInventory() {
-      alert('Inventory screen placeholder');
-    }
-
-    function clearRolls() {
-      if (confirm("Clear all rolls and inventory?")) {
-        localStorage.clear();
-        location.reload();
-      }
-    }
-
-    function buyPotion() {
-      if (coins >= 10) {
-        coins -= 10;
-        potionCount++;
-        alert('Potion added!');
+        autoInterval=null;
+        btn.textContent='Start Auto';
       } else {
-        alert('Not enough coins.');
+        autoInterval=setInterval(doRoll, Math.max(1, getCooldown()*1000));
+        btn.textContent='Stop Auto';
       }
-      updateCoins();
     }
 
-    function buyPill() {
-      if (coins >= 50 && !pillUsed) {
-        coins -= 50;
-        pillUsed = true;
-        alert('Pill activated! Extreme rarity unlocked.');
-      } else if (pillUsed) {
-        alert('Pill already used.');
-      } else {
-        alert('Not enough coins.');
-      }
-      updateCoins();
+    // ─── Persistence & Rendering ─────────────────────────────────────
+    let historyKeys = JSON.parse(localStorage.getItem('history'))||[],
+        inventory   = JSON.parse(localStorage.getItem('inventory'))||{};
+
+    function saveAll(){
+      localStorage.setItem('history',JSON.stringify(historyKeys));
+      localStorage.setItem('inventory',JSON.stringify(inventory));
     }
 
-    function sellCard() {
-      coins += 5;
-      alert('Card sold for 5 coins!');
-      updateCoins();
+    function renderHistory(){
+      const ul=document.getElementById('history');
+      ul.innerHTML='';
+      historyKeys.forEach(k=>{
+        const r=getPool().find(x=>x.key===k)||baseRarities.find(x=>x.key===k);
+        if(!r) return;
+        ul.insertAdjacentHTML('beforeend',
+          `<li>${displayMap[k]||k} (1/${r.denom.toLocaleString()})</li>`
+        );
+      });
+    }
+    function renderInventory(){
+      const ul=document.getElementById('inventoryList');
+      ul.innerHTML='';
+      baseRarities.concat(limitedDefs).forEach(r=>{
+        if(inventory[r.key]){
+          const pct=(100/r.denom).toFixed(4)+'%';
+          ul.insertAdjacentHTML('beforeend',
+            `<li>${displayMap[r.key]||r.key} x${inventory[r.key]} (${pct})</li>`
+          );
+        }
+      });
+    }
+    function renderIndex(){
+      const ul=document.getElementById('rarityList');
+      ul.innerHTML='';
+      const all=baseRarities.concat(limitedDefs),
+            sorted=all
+              .filter(r=>!limitedDefs.find(l=>l.key===r.key))
+              .sort((a,b)=>a.denom-b.denom)
+              .concat(limitedDefs);
+      sorted.forEach(r=>{
+        const exp = limitedDefs.find(l=>l.key===r.key)&&!isLimitedActive(r);
+        ul.insertAdjacentHTML('beforeend',
+          `<li class="${exp?'expired':''}">${displayMap[r.key]||r.key} (1/${r.denom.toLocaleString()})${exp?' (Expired)':''}</li>`
+        );
+      });
+    }
+    function updateStatus(){
+      document.getElementById('rebirthStatus').textContent = `Rebirths: ${rebirthCount}`;
+      document.getElementById('luckStatus').textContent    = `Luck: x${getLuck().toFixed(2)}`;
+      document.getElementById('cooldownStatus').textContent= `Cooldown: ${getCooldown().toFixed(3)} s`;
+    }
+    function animateResult(denom){
+      const el=document.getElementById('result');
+      el.classList.remove('anim-pop','anim-flash');
+      if(denom>=1e8) el.classList.add('anim-flash');
+      else if(denom>=1e5) el.classList.add('anim-pop');
     }
 
-    function craftCard() {
-      alert('Card crafted from rare roll!');
-    }
+    // ─── Tabs & Init ─────────────────────────────────────────────
+    document.querySelectorAll('.tab').forEach(tab=>
+      tab.addEventListener('click', ()=>{
+        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      })
+    );
 
-    updateCoins();
+    document.addEventListener('DOMContentLoaded', ()=>{
+      document.getElementById('rollBtn').onclick        = doRoll;
+      document.getElementById('autoBtn').onclick        = toggleAuto;
+      document.getElementById('rebirthBtn').onclick     = doRebirth;
+      document.getElementById('clearHistory').onclick   = ()=>{
+        historyKeys=[]; saveAll(); renderHistory();
+      };
+      updateStatus();
+      updateRebirthUI();
+      renderHistory();
+      renderInventory();
+      renderIndex();
+    });
   </script>
 </body>
 </html>
