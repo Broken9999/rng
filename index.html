@@ -592,7 +592,7 @@
         autoInterval = null;
         btn.textContent = 'Start Auto';
       } else {
-        autoInterval = setInterval(doRoll, Math.max(1, getCooldown() * 1000));
+        autoInterval = setInterval(doRoll, Math.max(1, getCooldown() * 1));
         btn.textContent = 'Stop Auto';
       }
     }
